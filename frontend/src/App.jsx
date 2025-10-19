@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import "./App.css";
 import TradePanel from "./components/TradePanel";
 
@@ -7,19 +7,54 @@ function App() {
   const [submitted, setSubmitted] = useState(false);
   const [day, setDay] = useState(1);
   const [bankBalance, setBankBalance] = useState(10000);
-  const [stockBalance, setStockBalance] = useState(0);
+  const [investmentValue, setInvestmentValue] = useState(0.0);
   const [mode, setMode] = useState("main"); // main | trade | summary
   const [tradeType, setTradeType] = useState(null);
-  const [startingBalance] = useState(10000); // to calculate gain/loss
+  const [currentDate, setCurrentDate] = useState("");
+  const [currentPrice, setCurrentPrice] = useState(0.0);
+  const [numStocks, setNumStocks] = useState(0.0);
 
+
+
+
+  const advanceToNextDay = useCallback(async () => {
+  
+    const response = await fetch("http://localhost:4000/nextRound");
+    const result= await response.json();
+    setCurrentDate(result.date);
+    setCurrentPrice(parseFloat(result.stockPrice));
+    setInvestmentValue(parseFloat(result.investment));
+    setDay((prev) => prev + 1);
+
+    
+  }, []);
   // ticker input
-  const handleSubmitTicker = (e) => {
+  const handleSubmitTicker =  async (e) => {
     e.preventDefault();
     if (ticker.trim() === "") {
       alert("Please enter a ticker symbol before continuing.");
       return;
     }
+    const postResponse = await fetch("http://localhost:4000/PostTicker", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ticker: ticker})
+    });
+    const postData = await postResponse.json();
+    if (!postResponse.ok) {
+        throw new Error(postData.error || `Failed to post ticker (Status: ${postResponse.status})`);
+      }
+    const gameValuesResponse = await fetch("http://localhost:4000/getTicker");
+    const gameValues = await gameValuesResponse.json();
+    setCurrentPrice(parseFloat(gameValues.history[0].price));
+    setCurrentDate(gameValues.history[0].date);
     setSubmitted(true);
+    setBankBalance(10000.0);
+    setInvestmentValue(0.0);
+    setNumStocks(0.0);
+    setDay(1);
   };
 
   // Buy and sell stuff
@@ -34,25 +69,39 @@ function App() {
   };
 
   // Panel for trading / REPLACE MY LOGIC WITH THE BACKEDN REQUEST!
-  const handleTradeSubmit = (amount) => {
-    if (tradeType === "buy") {
-      if (amount > bankBalance) {
-        alert("Insufficient funds!");
-        return;
-      }
-      setBankBalance((prev) => prev - amount);
-      setStockBalance((prev) => prev + amount);
-    } else if (tradeType === "sell") {
-      if (amount > stockBalance) {
-        alert("You don’t have enough stocks to sell!");
-        return;
-      }
-      setStockBalance((prev) => prev - amount);
-      setBankBalance((prev) => prev + amount);
-    }
+  const handleTradeSubmit = async (amount) => {
+      const amountToTrade = parseFloat(amount.toFixed(4));
 
-    setDay((prev) => prev + 1);
-    setMode("main");
+      if(tradeType == "buy"){
+        const buyResponse = await fetch("http://localhost:4000/PostInvestment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({numStocks: amountToTrade}),
+        });
+
+        const result = await buyResponse.json();
+
+        setBankBalance(parseFloat(result.money));
+        setInvestmentValue(parseFloat(result.investment));
+        setNumStocks(parseFloat(result.numofStocks));
+      }else if (tradeType == "sell"){
+         const sellResponse = await fetch("http://localhost:4000/PostSale", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({saleAmount: amountToTrade}),
+        });
+        const result = await sellResponse.json();
+        setBankBalance(parseFloat(result.money));
+        setInvestmentValue(parseFloat(result.investment));
+        setNumStocks(parseFloat(result.numofStocks));
+      }
+
+      await advanceToNextDay();
+      setMode("main");
   };
 
   const handleCancelTrade = () => {
@@ -60,13 +109,26 @@ function App() {
   };
 
   // quit xd
-  const handleQuit = () => {
+  const handleQuit = async () => {
+    const quitResponse = await fetch("http://localhost:4000/endGame");
+    const result = await quitResponse.json();
+
+    setBankBalance(parseFloat(result.finalMoney));
+    setInvestmentValue(0.0);
+    setNumStocks(0.0);
     setMode("summary");
   };
 
-  // silly calculation about the gain/loss, but I don't know if is working xd, I didn't test it
-  const totalBalance = bankBalance + stockBalance;
-  const gainLoss = totalBalance - startingBalance;
+
+  const handleHold = () => {
+    advanceToNextDay();
+  }
+
+
+  const finalGainLoss =  bankBalance - 10000;
+  
+
+
 
   return (
     <div className="container">
@@ -87,35 +149,35 @@ function App() {
       ) : mode === "trade" ? (
         // Trade screen
         <TradePanel
-          type={tradeType}
-          bankBalance={bankBalance}
-          stockBalance={stockBalance}
-          onSubmit={handleTradeSubmit}
-          onCancel={handleCancelTrade}
+            type={tradeType}
+            bankBalance={bankBalance}
+            investmentValue={investmentValue}
+            numStocks={numStocks}
+            currentPrice={currentPrice}
+            onSubmit={handleTradeSubmit}
+            onCancel={handleCancelTrade}
         />
       ) : mode === "summary" ? (
         // Summary screen
         <div className="summary-screen">
           <h2>Game Summary</h2>
           <p>
-            <strong>Total Gain/Loss:</strong> ${gainLoss.toLocaleString()}
+            <strong>Total Gain/Loss:</strong> ${finalGainLoss.toLocaleString()}
           </p>
           <p>
             <strong>Time Spent:</strong> {day - 1} day{day - 1 !== 1 ? "s" : ""}
           </p>
           <div className="result-box">
             <p>
-              {gainLoss >= 0
-                ? `Gain: $${gainLoss.toLocaleString()}`
-                : `Loss: $${Math.abs(gainLoss).toLocaleString()}`}
+              {finalGainLoss >= 0
+                ? `Gain: $${finalGainLoss.toLocaleString()}`
+                : `Loss: $${Math.abs(finalGainLoss).toLocaleString()}`}
+            </p>
+            <p>
+              Final Balance: ${bankBalance}
             </p>
           </div>
-          <button
-            className="submit-btn"
-            onClick={() => window.location.reload()}
-          >
-            Play Again
-          </button>
+        
         </div>
       ) : (
         // Game screen and options
@@ -124,9 +186,10 @@ function App() {
           <div className="balances">
             <p>
               Your Balance is:{" "}
-              <span className="money">${bankBalance.toLocaleString()}</span>
+              <span className="money">${bankBalance}</span>
             </p>
-            <p>Your Stock Balance is: ${stockBalance.toLocaleString()}</p>
+            <p>The Current Stock Price is: ${currentPrice.toFixed(4)}</p>
+            <p>Your Stock Balance is: {numStocks.toFixed(4)}</p>
           </div>
           <div className="button-group">
             <button className="action-btn" onClick={handleBuy}>
@@ -137,7 +200,7 @@ function App() {
             </button>
             <button
               className="action-btn"
-              onClick={() => setDay((prev) => prev + 1)}
+              onClick={handleHold}
             >
               Hold
             </button>

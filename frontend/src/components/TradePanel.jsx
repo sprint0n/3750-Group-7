@@ -4,34 +4,41 @@ import "./TradePanel.css";
 export default function TradePanel({
   type, // buy or sell, no more xd
   bankBalance,
-  stockBalance,
+  investmentValue,
   onSubmit,
   onCancel,
+  currentPrice,
+  numStocks
 }) {
-  const [amount, setAmount] = useState(0);
-  const [maxValue, setMaxValue] = useState(10000);
+  const [numShares, setNumShares] = useState(0);
   const [dragging, setDragging] = useState(false);
   const pieRef = useRef(null);
 
+const isBuy = type === "buy";
+const maxShares = isBuy 
+    ? (currentPrice > 0 ? (bankBalance / currentPrice) : 0) 
+    : numStocks; 
+
   // just update values
   useEffect(() => {
-    if (type === "buy") setMaxValue(bankBalance);
-    else setMaxValue(stockBalance);
-  }, [type, bankBalance, stockBalance]);
+    if (numShares > maxShares){
+      setNumShares(parseFloat(maxShares.toFixed(4)));
+    }
+  });
 
   // just update between 0 and max
   const handleChange = (newVal) => {
-    const value = Math.max(0, Math.min(newVal, maxValue));
-    setAmount(value);
+    const value = Math.max(0, Math.min(newVal, maxShares));
+    setNumShares(parseFloat(value.toFixed(4)));
   };
 
   // submit transaction
   const handleSubmit = () => {
-    if (amount <= 0) {
+    if (numShares <= 0) {
       alert("Please select an amount greater than 0.");
       return;
     }
-    onSubmit(amount);
+    onSubmit(numShares);
   };
 
   // PIE CHART, CHECK THIS SHIT OUT XDXDXDXDXD
@@ -55,11 +62,13 @@ export default function TradePanel({
     const y = e.clientY - (rect.top + rect.height / 2);
     const angle = Math.atan2(y, x) * (180 / Math.PI) + 180;
     const percent = Math.min(Math.max(angle / 360, 0), 1);
-    const newAmount = Math.round(percent * maxValue);
-    handleChange(newAmount);
+    const newAmount = Math.round(percent * maxShares);
+    handleChange(parseFloat(newAmount.toFixed(4)));
   };
 
-  const piePercent = maxValue === 0 ? 0 : (amount / maxValue) * 100;
+  const piePercent = maxShares === 0 ? 0 : (numShares / maxShares) * 100;
+
+  const monValue = numShares * currentPrice;
 
   return (
     <div
@@ -69,12 +78,14 @@ export default function TradePanel({
       onMouseLeave={handleEndDrag}
     >
       <h3>{type === "buy" ? "Buy Stocks" : "Sell Stocks"}</h3>
+      <p>Current Price: <span className="font-bold text-indigo-500">${currentPrice.toFixed(2)}</span></p>
 
       <div className="balances">
         <p>Current Balance: ${bankBalance.toLocaleString()}</p>
-        <p>Your Stock Balance: ${stockBalance.toLocaleString()}</p>
+        <p>Your Stock Balance: {numStocks.toLocaleString()}</p>
         <p>
-          Amount to {type === "buy" ? "Buy" : "Sell"}: ${amount}
+          Amount of stocks to {type === "buy" ? "Buy" : "Sell"}: {numShares.toFixed(4)}
+          Value in USD: ${monValue.toFixed(4)}
         </p>
       </div>
 
@@ -111,8 +122,8 @@ export default function TradePanel({
           <input
             type="range"
             min="0"
-            max={maxValue}
-            value={amount}
+            max={maxShares}
+            value={numShares}
             onChange={(e) => handleChange(Number(e.target.value))}
             className="slider"
           />
@@ -126,9 +137,9 @@ export default function TradePanel({
           <input
             id="amount"
             type="number"
-            value={amount}
+            value={numShares}
             min="0"
-            max={maxValue}
+            max={maxShares}
             onChange={(e) => handleChange(Number(e.target.value))}
             className="textbox"
           />

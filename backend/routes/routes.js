@@ -34,6 +34,7 @@ stockRoutes.route("/PostTicker").post(function (req, res) {
   console.log("In PostTicker route");
   ticker = req.body.ticker;
   console.log("Ticker: " + ticker);
+  res.status(200).json({ message: "Received!" });
 });
 
 //This gets the ticker from the input then generates a random day
@@ -88,15 +89,18 @@ stockRoutes.route("/getTicker").get(async function (req, res) {
 //This gets the investment amount from the user and buys them
 stockRoutes.route("/PostInvestment").post(async function (req, res) {
   try {
-    investment = req.body.investment;
-    numofStocks = investment / stockPrice;
-    money = money - investment;
-    overallTotal = overallTotal - investment;
+    const stocksToBuy = parseFloat(req.body.numStocks);
+    const cost = stocksToBuy * stockPrice;
+    
+    numofStocks += stocksToBuy;
+    money -= cost;
+    investment = numofStocks * stockPrice;
+
     console.log("Investment: " + investment);
     console.log("Number of Stocks: " + numofStocks);
     console.log("Money: " + money);
     console.log("Overall Total: " + overallTotal);
-    res.json({ investment: investment, money: money, numofStocks: numofStocks });
+    res.json({ investment: investment.toFixed(2), money: money.toFixed(2), numofStocks: numofStocks.toFixed(4) });
     
   } catch (error) {
     console.error("Error fetching investment data:", error);
@@ -105,20 +109,29 @@ stockRoutes.route("/PostInvestment").post(async function (req, res) {
 
 
 //This will get the sell value of the stock from the api and do the calculations for how much money is gained or lost
-stockRoutes.route("/getSellValue").get(async function (req, res) {
-  console.log("In getSellValue route");
+stockRoutes.route("/PostSale").post(async function (req, res) {
+  console.log("In PostSale route");
   //fetch the sell value from the api
   try {
-    investment = stockPrice * numofStocks;
-    money = money + investment;
-    overallTotal = overallTotal + investment;
-    console.log("Overall Total: " + overallTotal);
-    console.log("Money: " + money);
+      const saleAmount = parseFloat(req.body.saleAmount);
+      console.log("Starting Money: " + money);
+      
+      if(saleAmount > numofStocks + 0.0001){
+        return res.status(400).json({error: `Cannot Sell ${saleAmount.toFixed(2)}. Current held value is ${numofStocks.toFixed(2)}`});
+      }
 
-    res.json({
-      money: money,
-      overallTotal: overallTotal,
-    });
+      const revenue = saleAmount * stockPrice;
+      numofStocks -= saleAmount;
+      money += revenue;
+      investment = numofStocks * stockPrice; 
+    
+    console.log("Sale Amount: " + revenue);
+    console.log("Shares Sold: " + saleAmount);
+    console.log("Remaining Stocks: " + numofStocks);
+    console.log("New Money: " + money);
+    console.log("New Investment Value: " + investment);
+
+res.json({investement: investment.toFixed(2), money: money.toFixed(2), numofStocks: numofStocks.toFixed(4)})
   } catch (error) {
     console.error("Error fetching stock data:", error);
   }
@@ -145,9 +158,7 @@ stockRoutes.route("/nextRound").get(async function (req, res) {
     const oldPrice = stockPrice || parseFloat(history[currentIndex - 1].price);
     stockPrice = newPrice;
 
-    // Update investment value based on price change
-    const priceChange = newPrice - oldPrice;
-    investment += priceChange * numofStocks;
+    investment = numofStocks * stockPrice;
 
     console.log(`Day: ${history[currentIndex].date}`);
     console.log(`Old Price: ${oldPrice}, New Price: ${newPrice}`);
@@ -155,7 +166,7 @@ stockRoutes.route("/nextRound").get(async function (req, res) {
 
     res.json({
       date: history[currentIndex].date,
-      stockPrice: newPrice,
+      stockPrice: stockPrice.toFixed(4),
       investment: investment.toFixed(2),
     });
   } catch (error){
@@ -166,8 +177,15 @@ stockRoutes.route("/nextRound").get(async function (req, res) {
 //This will end the game and return the final money value and overall profit or loss
 stockRoutes.route("/endGame").get(async function (req, res) {
   try{
+
+  const finalSell = stockPrice * numofStocks;
+  money = money + finalSell;
+
+  numofStocks = 0.0;
+  investment = 0.0;
+
   console.log("In endGame route");
-  res.json({ money: money, overallTotal: overallTotal });
+  res.json({ finalMoney: money.toFixed(2)});
   } catch(error){
     console.error("Error fetching end game data:", error);
   }
