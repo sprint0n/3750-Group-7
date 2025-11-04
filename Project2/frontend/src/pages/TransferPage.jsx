@@ -3,10 +3,13 @@ import classes from "./TransferPage.module.css";
 
 function TransferPage() {
   const [fromAccount, setFromAccount] = useState("");
+  const [fromAccount2, setFromAccount2] = useState("");
   const [toAccount, setToAccount] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
   const [transferAccount, settransferAccount] = useState(false);
+  const [category2, setCategory2] = useState("");
+  const [amount2, setAmount2] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [userID, setUserID] = useState("");
 
@@ -16,7 +19,7 @@ function TransferPage() {
 
   const handleAccountTransfer = (e) => {
     e.preventDefault();
-    if (!userID || !accountNumber || !amount) {
+    if (!userID || !accountNumber || !amount || !category) {
       alert("Please fill in all fields");
       return;
     }
@@ -39,6 +42,19 @@ function TransferPage() {
 
     alert(
       `Transferring $${amount} from your ${fromAccount} account to your ${toAccount} account.`
+    );
+  };
+
+  const handleGlobalAccountTransfer = (e) => {
+    e.preventDefault();
+
+    if (!userID || !category2 || !amount2) {
+      alert("Fill out all fields");
+      return;
+    }
+
+    alert(
+      `Transferring $${amount2} from your ${fromAccount} account to your ${toAccount} account.`
     );
   };
 
@@ -160,8 +176,8 @@ function TransferPage() {
                 type="radio"
                 name="fromAccount"
                 value="checking"
-                checked={fromAccount === "checking"}
-                onChange={(e) => setFromAccount(e.target.value)}
+                checked={fromAccount2 === "checking"}
+                onChange={(e) => setFromAccount2(e.target.value)}
               />
               Checking
             </label>
@@ -171,8 +187,8 @@ function TransferPage() {
                 type="radio"
                 name="fromAccount"
                 value="saving"
-                checked={fromAccount === "saving"}
-                onChange={(e) => setFromAccount(e.target.value)}
+                checked={fromAccount2 === "saving"}
+                onChange={(e) => setFromAccount2(e.target.value)}
               />
               Savings
             </label>
@@ -182,8 +198,8 @@ function TransferPage() {
                 type="radio"
                 name="fromAccount"
                 value="other"
-                checked={fromAccount === "other"}
-                onChange={(e) => setFromAccount(e.target.value)}
+                checked={fromAccount2 === "other"}
+                onChange={(e) => setFromAccount2(e.target.value)}
               />
               Other
             </label>
@@ -192,10 +208,10 @@ function TransferPage() {
           <div className={classes.inputGroup}>
             <label htmlFor="category">Category:</label>
             <input
-              id="category"
+              id="category2"
               type="text"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              value={category2}
+              onChange={(e) => setCategory2(e.target.value)}
               placeholder="Enter a category (e.g. Bills, Rent, Food)"
             />
           </div>
@@ -206,7 +222,7 @@ function TransferPage() {
               id="userId"
               type="number"
               value={userID}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={(e) => setUserID(e.target.value)}
               placeholder="userID"
             />
           </div>
@@ -217,7 +233,7 @@ function TransferPage() {
               id="accountnum"
               type="number"
               value={accountNumber}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setAccountNumber(e.target.value)}
               placeholder="Enter Account Number"
             />
           </div>
@@ -227,12 +243,12 @@ function TransferPage() {
             <input
               id="Amount2"
               type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              value={amount2}
+              onChange={(e) => setAmount2(e.target.value)}
               placeholder="Enter amount"
             />
           </div>
-          <button type="submit" onClick={handleAccountTransfer}>
+          <button type="submit" onClick={handleGlobalAccountTransfer}>
             Transfer
           </button>
 

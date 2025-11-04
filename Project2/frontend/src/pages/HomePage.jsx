@@ -12,6 +12,11 @@ function HomePage() {
     setForm((prev) => !prev);
   };
 
+  const handleCancel = () => {
+    setForm(false);
+    setAccountName("Other");
+  };
+
   useEffect(() => {
     //this will be where we need to take from the backend
     const dummyData = {
@@ -60,7 +65,7 @@ function HomePage() {
             placeholder="Enter new account name"
           />
           <button type="submit">Save</button>
-          <button type="button" onClick={isForm}>
+          <button type="button" onClick={handleCancel}>
             Cancel
           </button>
         </form>
