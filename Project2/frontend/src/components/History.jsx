@@ -1,4 +1,4 @@
-import classes from "../pages/HistoryPage.module.css";
+import classes from "./History.module.css";
 
 function History({ type, category, amount, date }) {
   return (

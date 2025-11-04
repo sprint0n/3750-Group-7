@@ -8,10 +8,16 @@ function ExchangePage() {
   const [category, setCategory] = useState("");
 
   const WithdrawnHandler = () => {
-    console.log("Withdrawing:", withdrawn);
+    if (!fromAccount || !withdrawn || !category) {
+      alert("please fill out the withdawn amount, category, and account");
+    }
+    console.log("withdrawing:", withdrawn);
   };
 
   const DepositHandler = () => {
+    if (!fromAccount || !deposit || !category) {
+      alert("please fill out the deposit amount, category, and account");
+    }
     console.log("Depositing:", deposit);
   };
 
