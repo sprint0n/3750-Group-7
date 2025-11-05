@@ -1,5 +1,6 @@
 import { useState } from "react";
 import classes from "./TransferPage.module.css";
+import { internalTransfer, externalTransfer } from "../api";
 
 function TransferPage() {
   const [fromAccount, setFromAccount] = useState("");
@@ -12,50 +13,85 @@ function TransferPage() {
   const [amount2, setAmount2] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [userID, setUserID] = useState("");
+  const normalize = (a) => (a === "saving" ? "savings" : a);
 
   const transferAccountHandler = () => {
     settransferAccount((prev) => !prev);
   };
 
-  const handleAccountTransfer = (e) => {
-    e.preventDefault();
-    if (!userID || !accountNumber || !amount || !category) {
-      alert("Please fill in all fields");
-      return;
-    }
-
-    alert(`Transfering ${amount} from your account ${account}`);
-  };
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
+    //JM
     e.preventDefault();
 
-    if (!fromAccount || !toAccount || !amount) {
-      alert("Please select both accounts and enter an amount.");
+    if (!fromAccount || !toAccount || !amount || !category) {
+      alert("Please select both accounts, enter an amount, and a category.");
       return;
     }
-
     if (fromAccount === toAccount) {
       alert("You cannot transfer to the same account!");
       return;
     }
-
-    alert(
-      `Transferring $${amount} from your ${fromAccount} account to your ${toAccount} account.`
-    );
-  };
-
-  const handleGlobalAccountTransfer = (e) => {
-    e.preventDefault();
-
-    if (!userID || !category2 || !amount2) {
-      alert("Fill out all fields");
+    const n = Number(amount);
+    if (!Number.isFinite(n) || n <= 0) {
+      alert("Amount must be > 0");
       return;
     }
 
-    alert(
-      `Transferring $${amount2} from your ${fromAccount} account to your ${toAccount} account.`
-    );
+    try {
+      const { data } = await internalTransfer({
+        amount: n,
+        fromAccount: normalize(fromAccount),
+        toAccount: normalize(toAccount),
+        category,
+      });
+      alert(data?.message || "Internal transfer successful");
+      setAmount("");
+      setCategory("");
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Internal transfer failed.";
+      alert(msg);
+    }
+  };
+
+  const handleGlobalAccountTransfer = async (e) => {
+    //JM
+
+    e.preventDefault();
+
+    if (!userID || !accountNumber || !fromAccount2 || !amount2 || !category2) {
+      alert("Fill out all fields");
+      return;
+    }
+    const n = Number(amount2);
+    if (!Number.isFinite(n) || n <= 0) {
+      alert("Amount must be > 0");
+      return;
+    }
+
+    const toAccount =
+      Number(accountNumber) === 1
+        ? "checking"
+        : Number(accountNumber) === 2
+        ? "savings"
+        : "other";
+
+    try {
+      const { data } = await externalTransfer({
+        amount: n,
+        fromAccount: normalize(fromAccount2),
+        toAccount,
+        targetUserId: userID, // Mongo ObjectId string
+        category: category2,
+      });
+      alert(data?.message || "External transfer successful");
+      setAmount2("");
+      setCategory2("");
+      setUserID("");
+      setAccountNumber("");
+    } catch (err) {
+      const msg = err?.response?.data?.message || "External transfer failed.";
+      alert(msg);
+    }
   };
 
   return (
@@ -220,7 +256,7 @@ function TransferPage() {
             <label htmlFor="userId">Account ID:</label>
             <input
               id="userId"
-              type="number"
+              type="text" //not number, Mongo ObjectId string
               value={userID}
               onChange={(e) => setUserID(e.target.value)}
               placeholder="userID"

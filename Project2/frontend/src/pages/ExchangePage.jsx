@@ -1,24 +1,76 @@
 import classes from "./ExchangePage.module.css";
 import { useState } from "react";
+import { deposit as apiDeposit, withdraw as apiWithdraw } from "../api"; // alias to avoid name clash
+
+const normalizeAccount = (a) => (a === "saving" ? "savings" : a);
 
 function ExchangePage() {
-  const [deposit, setDeposit] = useState("");
-  const [withdrawn, setWithdrawn] = useState("");
+  const [depositAmt, setDepositAmt] = useState("");
+  const [withdrawAmt, setWithdrawAmt] = useState("");
   const [fromAccount, setFromAccount] = useState("");
   const [category, setCategory] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const WithdrawnHandler = () => {
-    if (!fromAccount || !withdrawn || !category) {
-      alert("please fill out the withdawn amount, category, and account");
+  const WithdrawnHandler = async () => {
+    if (!fromAccount || !withdrawAmt || !category) {
+      alert("please fill out the withdraw amount, category, and account");
+      return;
     }
-    console.log("withdrawing:", withdrawn);
+    const n = Number(withdrawAmt);
+    if (!Number.isFinite(n) || n <= 0) {
+      alert("Withdraw amount must be > 0");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const account = normalizeAccount(fromAccount);
+      const { data } = await apiWithdraw({
+        amount: n,
+        account,
+        category,
+      });
+      alert(data?.message || "Withdraw successful");
+      setWithdrawAmt("");
+      setCategory("");
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message ||
+        "Withdrawal failed. Check funds and try again.";
+      alert(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const DepositHandler = () => {
-    if (!fromAccount || !deposit || !category) {
+  const DepositHandler = async () => {
+    if (!fromAccount || !depositAmt || !category) {
       alert("please fill out the deposit amount, category, and account");
+      return;
     }
-    console.log("Depositing:", deposit);
+    const n = Number(depositAmt);
+    if (!Number.isFinite(n) || n <= 0) {
+      alert("Deposit amount must be > 0");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const account = normalizeAccount(fromAccount);
+      const { data } = await apiDeposit({
+        amount: n,
+        account,
+        category,
+      });
+      alert(data?.message || "Deposit successful");
+      setDepositAmt("");
+      setCategory("");
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Deposit failed. Try again.";
+      alert(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -41,7 +93,7 @@ function ExchangePage() {
             <input
               type="radio"
               name="fromAccount"
-              value="saving"
+              value="saving" // UI label normalized to "savings"
               checked={fromAccount === "saving"}
               onChange={(e) => setFromAccount(e.target.value)}
             />
@@ -74,21 +126,25 @@ function ExchangePage() {
         <div>
           <input
             type="number"
-            value={withdrawn}
-            onChange={(e) => setWithdrawn(e.target.value)}
+            value={withdrawAmt}
+            onChange={(e) => setWithdrawAmt(e.target.value)}
             placeholder="Withdraw amount"
           />
-          <button onClick={WithdrawnHandler}>Withdraw</button>
+          <button onClick={WithdrawnHandler} disabled={loading}>
+            {loading ? "Processing…" : "Withdraw"}
+          </button>
         </div>
 
         <div>
           <input
             type="number"
-            value={deposit}
-            onChange={(e) => setDeposit(e.target.value)}
+            value={depositAmt}
+            onChange={(e) => setDepositAmt(e.target.value)}
             placeholder="Deposit amount"
           />
-          <button onClick={DepositHandler}>Deposit</button>
+          <button onClick={DepositHandler} disabled={loading}>
+            {loading ? "Processing…" : "Deposit"}
+          </button>
         </div>
       </div>
     </>

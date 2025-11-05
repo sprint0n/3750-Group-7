@@ -1,42 +1,46 @@
+// src/pages/CreatePage.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import classes from "./CreatePage.module.css";
+import { register } from "../api";
 
 function CreatePage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const SubmitHandler = () => {
+  const submitHandler = async (e) => { //JM
+    e.preventDefault();
+
     if (!username || !password || !confirmPassword) {
       alert("Please enter in all fields");
       return;
     }
-
     if (password !== confirmPassword) {
       alert("Please match the passwords");
       return;
     }
 
-    alert("Account created successfully!");
-    //Add the fetch calls
-
-    navigate("/");
+    try {
+      setLoading(true);
+      const { data } = await register(username.trim(), password);
+      alert(data?.message || "Account created successfully!");
+      navigate("/"); // back to Login
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Registration failed.";
+      alert(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className={classes["create-wrapper"]}>
       <div className={classes["create-box"]}>
         <h1 className={classes["create-title"]}>Create an account</h1>
-        <form
-          className={classes["create-form"]}
-          onSubmit={(e) => {
-            e.preventDefault();
-            SubmitHandler();
-          }}
-        >
+        <form className={classes["create-form"]} onSubmit={submitHandler}>
           <label>Username</label>
           <input
             type="text"
@@ -58,8 +62,12 @@ function CreatePage() {
             onChange={(e) => setConfirmPassword(e.target.value)}
           />
 
-          <button className={classes["create-button"]} type="submit">
-            Create Account
+          <button
+            className={classes["create-button"]}
+            type="submit"
+            disabled={loading}
+          >
+            {loading ? "Creating..." : "Create Account"}
           </button>
         </form>
       </div>

@@ -1,32 +1,45 @@
 import { useState, useEffect } from "react";
 import "./HomePage.css";
+import { me } from "../api";
+
+const fmt = (n) =>
+  Number.isFinite(Number(n))
+    ? Number(n).toLocaleString(undefined, {
+        style: "currency",
+        currency: "USD",
+      })
+    : "$0.00";
 
 function HomePage() {
-  const [checkingAccount, setCheckingAccount] = useState("");
-  const [savingAccount, setSavingAccount] = useState("");
-  const [otherAccount, setOtherAccount] = useState("");
+  const [checkingAccount, setCheckingAccount] = useState("$0.00");
+  const [savingAccount, setSavingAccount] = useState("$0.00");
+  const [otherAccount, setOtherAccount] = useState("$0.00");
   const [accountName, setAccountName] = useState("Other");
   const [form, setForm] = useState(false);
 
-  const isForm = () => {
-    setForm((prev) => !prev);
-  };
-
+  const isForm = () => setForm((prev) => !prev);
   const handleCancel = () => {
     setForm(false);
     setAccountName("Other");
   };
 
+  const loadBalances = async () => {
+    try {
+      const { data } = await me(); // { username, checking, savings, other }
+      setCheckingAccount(fmt(data.checking));
+      setSavingAccount(fmt(data.savings));
+      setOtherAccount(fmt(data.other));
+    } catch (e) {
+      console.error("Failed to load balances:", e?.response?.data || e);
+    }
+  };
+
   useEffect(() => {
-    //this will be where we need to take from the backend
-    const dummyData = {
-      checking: "$1,245.50",
-      saving: "$8,920.75",
-      other: "$9,002.89",
-    };
-    setCheckingAccount(dummyData.checking);
-    setSavingAccount(dummyData.saving);
-    setOtherAccount(dummyData.other);
+    loadBalances();
+    // optional: refresh when tab regains focus
+    const onFocus = () => loadBalances();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
   return (
@@ -48,6 +61,14 @@ function HomePage() {
         <p className="balance">{otherAccount}</p>
         <button type="button" onClick={isForm}>
           Change Name
+        </button>
+        {/* Optional manual refresh button */}
+        <button
+          type="button"
+          onClick={loadBalances}
+          style={{ marginLeft: 0, marginTop: 10 }}
+        >
+          Refresh Balances
         </button>
       </div>
 

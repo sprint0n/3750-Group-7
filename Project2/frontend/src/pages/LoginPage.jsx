@@ -1,20 +1,33 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import classes from "./LoginPage.module.css";
+import { login } from "../api";
 
 function LoginPage({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const submitHandler = (e) => {
+  const submitHandler = async (e) => {
+    //JM
     e.preventDefault();
-    //change this later for the password and login logic
-    if (username === "admin" && password === "1234") {
-      onLogin(true);
+
+    if (!username || !password) {
+      alert("Please enter username and password");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await login(username.trim(), password); // call backend /api/login
+      onLogin(true); // unlock protected routes
       navigate("/app/home");
-    } else {
-      alert("Invalid credentials!");
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Invalid credentials!";
+      alert(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -40,8 +53,12 @@ function LoginPage({ onLogin }) {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <button type="submit" className={classes["login-button"]}>
-            Login
+          <button
+            type="submit"
+            className={classes["login-button"]}
+            disabled={loading}
+          >
+            {loading ? "Signing in..." : "Login"}
           </button>
         </form>
         <p className={classes["login-footer"]}>
