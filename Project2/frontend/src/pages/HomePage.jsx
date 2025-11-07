@@ -14,13 +14,13 @@ function HomePage() {
   const [checkingAccount, setCheckingAccount] = useState("$0.00");
   const [savingAccount, setSavingAccount] = useState("$0.00");
   const [otherAccount, setOtherAccount] = useState("$0.00");
-  const [accountName, setAccountName] = useState("Other");
+  const [accountName, setAccountName] = useState(localStorage.getItem("otherAccountName") || "Other");
   const [form, setForm] = useState(false);
 
   const isForm = () => setForm((prev) => !prev);
   const handleCancel = () => {
     setForm(false);
-    setAccountName("Other");
+    setAccountName(localStorage.getItem("otherAccountName") || "Other");
   };
 
   const loadBalances = async () => {
@@ -41,6 +41,12 @@ function HomePage() {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
+
+    const handleSave = (e) => {
+    e.preventDefault();
+    localStorage.setItem("otherAccountName", accountName);
+    setForm(false);
+  };
 
   return (
     <div className="home-container">
@@ -74,10 +80,7 @@ function HomePage() {
 
       {form && (
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setForm(false);
-          }}
+          onSubmit={handleSave}
         >
           <input
             type="text"

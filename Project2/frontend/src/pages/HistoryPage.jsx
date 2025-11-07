@@ -10,6 +10,7 @@ function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [pieLoading, setPieLoading] = useState(true);
   const [error, setError] = useState("");
+  const [searchAccount, setSearchAccount] = useState("");
   // I PRETTY MUCH HAD TO CODE THIS FROM SCRATCH xd, FUCK THISSSS
   useEffect(() => {
     let mounted = true;
@@ -64,6 +65,50 @@ function HistoryPage() {
       <div className={classes.content}>
         <div className={classes.historySection}>
           <h3>Transaction History:</h3>
+
+          <div>
+            <h3>Select account to see history</h3>
+
+            <label>
+              <input
+                type="radio"
+                value="checking"
+                checked={searchAccount === "checking"}
+                onChange={(e) => setSearchAccount(e.target.value)}
+              />
+              Checking
+            </label>
+
+            <label>
+              <input
+                type="radio"
+                value="saving"
+                checked={searchAccount === "saving"}
+                onChange={(e) => setSearchAccount(e.target.value)}
+              />
+              Savings
+            </label>
+
+            <label>
+              <input
+                type="radio"
+                value="other"
+                checked={searchAccount === "other"}
+                onChange={(e) => setSearchAccount(e.target.value)}
+              />
+              Other
+            </label>
+
+                <label>
+              <input
+                type="radio"
+                value="allAccounts"
+                checked={searchAccount === "allAccount"}
+                onChange={(e) => setSearchAccount(e.target.value)}
+              />
+             All accounts
+            </label>
+          </div>
 
           {loading ? (
             <p>Loading transactions…</p>

@@ -1,6 +1,6 @@
 import classes from "./History.module.css";
 
-function History({ type, category, amount, date }) {
+function History({ type, category, amount, date, account }) {
   return (
     <div className={classes.historyCard}>
       <p>
@@ -11,6 +11,9 @@ function History({ type, category, amount, date }) {
       </p>
       <p>
         <strong>Category:</strong> {category}
+      </p>
+         <p>
+        <strong>Account:</strong> {account}
       </p>
       <p>
         <strong>Date:</strong> {date}
