@@ -9,6 +9,7 @@ function LogoutPage() {
     //Logout the user here in the useEffect then proceed to take them to login screen
     //This is a timer for the logout screen
     const timer = setTimeout(() => {
+      localStorage.clear();
       navigate("/");
     }, 1500);
 
