@@ -1,63 +1,26 @@
 const express = require("express");
 const recordRoutes = express.Router();
 const dbo = require("../db/conn");
-const ObjectId = require("mongodb").ObjectId;
+const { ObjectId } = require("mongodb");
 const crypto = require("crypto");
 
 const db = dbo.getDB();
-
 const userCollection = db.collection("Users");
 const transferCollection = db.collection("Transfers");
 
-const isValidAccount = (accountName) => {
-  return ["checking", "savings", "other"].includes(accountName);
-};
-
-/*
-Users Stores
-Username
-Password
-Salt
-Hash
-1
-2
-3
-
-Transfers Stores
-UserId
-AmountTransferred
-AccountTransferedFrom NULL unless transfer was external
-AccountTransferedToWith NULL unless transfer was external
-TransferCategory
-TransferDate
-TransferType
-
-
-ROUTES NEEDED:
-Register New User
-Log in User
-Transfer Within User Account
-Transfer With Another User's Account (Requires User ID number and Account Number)
-Transfer History List
-Deposit Money
-Withdraw Money --Error check: MONEY CANNOT GO BELOW 0
-Transfer History for Specific Account ID for User ID
-Transfer History for all Accounts of User ID
-
-Store Account IDs as 1, 2, 3
-1- Checking
-2- Savings
-3- Other
-
-
-Add Logout Route
-Add Graph Route
-*/
+// ---- account helpers ----
+const ACCOUNT_NAME_BY_NUM = { 1: "checking", 2: "savings", 3: "other" };
+function normalizeAccount(input) {
+  if (input === undefined || input === null) return null;
+  const s = String(input).trim().toLowerCase();
+  if (ACCOUNT_NAME_BY_NUM[s]) return ACCOUNT_NAME_BY_NUM[s];
+  if (["checking", "savings", "other"].includes(s)) return s;
+  return null;
+}
 
 function genSalt() {
   return crypto.randomBytes(16).toString("hex");
 }
-
 function hashPassword(password, salt) {
   return crypto
     .createHash("sha256")
@@ -65,8 +28,7 @@ function hashPassword(password, salt) {
     .digest("hex");
 }
 
-//placeholder: Get all user data
-recordRoutes.route("/getUsers").get(async (req, res) => {
+recordRoutes.route("/getUsers").get(async (_req, res) => {
   try {
     const results = await userCollection.find({}).toArray();
     res.json(results);
@@ -76,24 +38,77 @@ recordRoutes.route("/getUsers").get(async (req, res) => {
   }
 });
 
-recordRoutes.route("/getTransfers").get(async (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ message: "User not logged in." });
+recordRoutes.route("/register").post(async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password)
+      return res.status(400).json({ message: "Missing registration fields." });
+
+    const existing = await userCollection.findOne({ username });
+    if (existing)
+      return res.status(409).json({ message: "Username already taken." });
+
+    const salt = genSalt();
+    const hashedPassword = hashPassword(password, salt);
+
+    const newUser = {
+      username,
+      salt,
+      hashedPassword,
+      checking: 0,
+      savings: 0,
+      other: 0,
+    };
+
+    const result = await userCollection.insertOne(newUser);
+    req.session.username = username;
+    req.session.userId = result.insertedId;
+    res
+      .status(201)
+      .json({ message: "Registration successful. Please log in." });
+  } catch (err) {
+    console.error("Registration failed:", err);
+    res.status(500).json({ message: "Unexpected error during registration." });
   }
+});
+
+recordRoutes.route("/login").post(async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const user = await userCollection.findOne({ username });
+    if (!user)
+      return res.status(401).json({ message: "Invalid username or password" });
+
+    const testHash = hashPassword(password, user.salt);
+    if (testHash !== user.hashedPassword)
+      return res.status(401).json({ message: "Invalid username or password" });
+
+    req.session.username = user.username;
+    req.session.userId = user._id;
+    res.status(200).json({ message: "Log in successful." });
+  } catch (err) {
+    console.error("Log in failed:", err);
+    res.status(500).json({ message: "Unexpected error during log in." });
+  }
+});
+
+recordRoutes.route("/getTransfers").get(async (req, res) => {
+  if (!req.session.userId)
+    return res.status(401).json({ message: "User not logged in." });
   try {
     const userIdString = req.session.userId.toString();
     const userCheck = new RegExp(`_${userIdString}`);
 
-    let myquery = {
-      $or: [
-        { AccountTransferedFrom: userCheck },
-        { AccountTransferedTo: userCheck },
-      ],
-    };
     const results = await transferCollection
-      .find(myquery)
-      .sort({ transferDate: -1 })
+      .find({
+        $or: [
+          { AccountTransferedFrom: userCheck },
+          { AccountTransferedTo: userCheck },
+        ],
+      })
+      .sort({ TransferDate: -1, transferDate: -1 })
       .toArray();
+
     res.json(results);
   } catch (err) {
     console.error(err);
@@ -101,108 +116,33 @@ recordRoutes.route("/getTransfers").get(async (req, res) => {
   }
 });
 
-recordRoutes.route("/register").post(async (req, res) => {
-  try {
-    const username = req.body.username;
-    const password = req.body.password;
-    const currentUser = await userCollection.findOne({ username: username });
-    if (!username || !password) {
-      return res.status(400).json({ message: "Missing Registration fields!" });
-    }
-    if (currentUser) {
-      return res.status(409).json({ message: "Username already taken." });
-    }
-    const salt = genSalt();
-    const hashedPassword = hashPassword(password, salt);
-
-    let newUser = {
-      username: username,
-      salt: salt,
-      hashedPassword: hashedPassword,
-      checking: 0,
-      savings: 0,
-      other: 0,
-    };
-
-    const result = await userCollection.insertOne(newUser);
-
-    req.session.username = newUser.username;
-    req.session.userId = result.insertedId;
-    res
-      .status(201)
-      .json({ message: "Registration Successful. Please Log in." });
-  } catch (err) {
-    console.error("Registration failed:", err);
-    return res
-      .status(500)
-      .json({ message: "An unexpected error occured during registration." });
-  }
-});
-
-recordRoutes.route("/login").post(async (req, res) => {
-  //allow user to Log IN
-  try {
-    const username = req.body.username;
-    const password = req.body.password;
-
-    const user = await userCollection.findOne({ username: username });
-
-    if (!user) {
-      return res.status(401).json({ message: "Invalid username or password" });
-    }
-
-    const testHash = hashPassword(password, user.salt);
-
-    if (user.hashedPassword === testHash) {
-      req.session.username = user.username;
-      req.session.userId = user._id;
-      res.status(200).json({ message: "Log in Successful." });
-    } else {
-      return res.status(401).json({ message: "Invalid username or password" });
-    }
-  } catch (err) {
-    console.error("Log in failed:", err);
-    return res
-      .status(500)
-      .json({ message: "An unexpected error occured during log in." });
-  }
-});
-
 recordRoutes.route("/deposit").post(async (req, res) => {
-  if (!req.session.userId) {
+  if (!req.session.userId)
     return res.status(401).json({ message: "User not logged in." });
-  }
   try {
     const { amount, account, category } = req.body;
     const userId = req.session.userId;
 
-    if (!amount || !account || !category) {
-      return res
-        .status(400)
-        .json({ message: "Missing Paramaters. Please fill all fields." });
-    }
-    if (!isValidAccount(account)) {
-      return res.status(400).json({ message: "Invalid Account." });
-    }
+    const accountName = normalizeAccount(account);
+    if (!amount || !accountName || !category)
+      return res.status(400).json({ message: "Missing parameters." });
+
     const depositAmount = parseFloat(amount);
-    if (isNaN(depositAmount) || depositAmount <= 0) {
+    if (isNaN(depositAmount) || depositAmount <= 0)
       return res.status(400).json({ message: "Invalid deposit amount." });
-    }
 
     const userUpdate = await userCollection.updateOne(
       { _id: new ObjectId(userId) },
-      { $inc: { [account]: depositAmount } }
+      { $inc: { [accountName]: depositAmount } }
     );
-
-    if (userUpdate.modifiedCount === 0) {
+    if (userUpdate.modifiedCount === 0)
       return res.status(404).json({ message: "User not found." });
-    }
 
     const newTransfer = {
       UserID: new ObjectId(userId),
       AmountTransferred: depositAmount,
-      AccountTransferedFrom: "EXTERNAL", //External Means Cash Deposit
-      AccountTransferedTo: `${account}_${userId}`,
+      AccountTransferedFrom: "EXTERNAL",
+      AccountTransferedTo: `${accountName}_${userId}`,
       TransferCategory: category,
       TransferDate: new Date(),
       TransferType: "deposit",
@@ -212,230 +152,171 @@ recordRoutes.route("/deposit").post(async (req, res) => {
     res.status(200).json({ message: "Deposit successful." });
   } catch (err) {
     console.error("Deposit failed:", err);
-    return res
-      .status(500)
-      .json({ message: "An unexpected error ocurred during deposit." });
+    res.status(500).json({ message: "Unexpected error during deposit." });
   }
 });
 
 recordRoutes.route("/withdraw").post(async (req, res) => {
-  //allow user to withdraw money into chosen account
-  if (!req.session.userId) {
+  if (!req.session.userId)
     return res.status(401).json({ message: "User not logged in." });
-  }
   try {
     const { amount, account, category } = req.body;
     const userId = req.session.userId;
 
-    if (!amount || !account || !category) {
-      return res
-        .status(400)
-        .json({ message: "Missing Paramaters. Please fill all fields." });
-    }
-    if (!isValidAccount(account)) {
-      return res.status(400).json({ message: "Invalid Account." });
-    }
+    const accountName = normalizeAccount(account);
+    if (!amount || !accountName || !category)
+      return res.status(400).json({ message: "Missing parameters." });
+
     const withdrawAmount = parseFloat(amount);
-    if (isNaN(withdrawAmount) || withdrawAmount <= 0) {
-      return res.status(400).json({ message: "Invalid withdrawl amount." });
-    }
+    if (isNaN(withdrawAmount) || withdrawAmount <= 0)
+      return res.status(400).json({ message: "Invalid withdrawal amount." });
 
     const userUpdate = await userCollection.updateOne(
-      {
-        _id: new ObjectId(userId),
-        [account]: { $gte: withdrawAmount },
-      },
-      { $inc: { [account]: -withdrawAmount } }
+      { _id: new ObjectId(userId), [accountName]: { $gte: withdrawAmount } },
+      { $inc: { [accountName]: -withdrawAmount } }
     );
-
-    if (userUpdate.modifiedCount === 0) {
+    if (userUpdate.modifiedCount === 0)
       return res.status(400).json({
-        message: "Insufficient funds. Withdrawl cannot be completed.",
+        message: "Insufficient funds. Withdrawal cannot be completed.",
       });
-    }
 
     const newTransfer = {
       UserID: new ObjectId(userId),
       AmountTransferred: withdrawAmount,
-      AccountTransferedFrom: `${account}_${userId}`,
+      AccountTransferedFrom: `${accountName}_${userId}`,
       AccountTransferedTo: "EXTERNAL",
       TransferCategory: category,
       TransferDate: new Date(),
       TransferType: "withdrawal",
     };
-
     await transferCollection.insertOne(newTransfer);
 
-    res.status(200).json({ message: "Withdrawl successful." });
+    res.status(200).json({ message: "Withdrawal successful." });
   } catch (err) {
     console.error("Withdrawal failed:", err);
-    return res
-      .status(500)
-      .json({ message: "An unexpected error occurred during withdrawal." });
+    res.status(500).json({ message: "Unexpected error during withdrawal." });
   }
 });
 
 recordRoutes.route("/InternalTransfer").post(async (req, res) => {
-  if (!req.session.userId) {
+  if (!req.session.userId)
     return res.status(401).json({ message: "User not logged in." });
-  }
   try {
     const { amount, fromAccount, toAccount, category } = req.body;
     const userId = req.session.userId;
 
-    if (!amount || !fromAccount || !toAccount || !category) {
-      return res.status(400).json({ message: "Missing paramaters." });
-    }
-    if (!isValidAccount(fromAccount) || !isValidAccount(toAccount)) {
-      return res.status(400).json({ message: "Invalid account name." });
-    }
-    if (fromAccount === toAccount) {
+    const fromName = normalizeAccount(fromAccount);
+    const toName = normalizeAccount(toAccount);
+    if (!amount || !fromName || !toName || !category)
+      return res.status(400).json({ message: "Missing parameters." });
+    if (fromName === toName)
       return res
         .status(400)
         .json({ message: "Cannot transfer to the same account." });
-    }
+
     const transferAmount = parseFloat(amount);
-    if (isNaN(transferAmount) || transferAmount <= 0) {
+    if (isNaN(transferAmount) || transferAmount <= 0)
       return res.status(400).json({ message: "Invalid transfer amount." });
-    }
 
     const userUpdate = await userCollection.updateOne(
-      {
-        _id: new ObjectId(userId),
-        [fromAccount]: { $gte: transferAmount },
-      },
-      {
-        $inc: {
-          [fromAccount]: -transferAmount,
-          [toAccount]: transferAmount,
-        },
-      }
+      { _id: new ObjectId(userId), [fromName]: { $gte: transferAmount } },
+      { $inc: { [fromName]: -transferAmount, [toName]: transferAmount } }
     );
-    if (userUpdate.modifiedCount === 0) {
-      return res
-        .status(400)
-        .json({ message: "Insufficient funds in source account." });
-    }
+    if (userUpdate.modifiedCount === 0)
+      return res.status(400).json({ message: "Insufficient funds." });
 
     const newTransfer = {
       UserID: new ObjectId(userId),
       AmountTransferred: transferAmount,
-      AccountTransferedFrom: `${fromAccount}_${userId}`,
-      AccountTransferedTo: `${toAccount}_${userId}`,
+      AccountTransferedFrom: `${fromName}_${userId}`,
+      AccountTransferedTo: `${toName}_${userId}`,
       TransferCategory: category,
-      transferDate: Date(),
+      TransferDate: new Date(),
       TransferType: "internal",
     };
-
     await transferCollection.insertOne(newTransfer);
 
     res.status(200).json({ message: "Internal Transfer successful." });
   } catch (err) {
     console.error("Transfer failed:", err);
-    return res
-      .status(500)
-      .json({ message: "An unexpected error occurred during transfer." });
+    res.status(500).json({ message: "Unexpected error during transfer." });
   }
 });
 
 recordRoutes.route("/ExternalTransfer").post(async (req, res) => {
-  //allow user to transfer with another account, as long as you have given id and 1,2,3 for account to transfer with
-  if (!req.session.userId) {
+  if (!req.session.userId)
     return res.status(401).json({ message: "User not logged in." });
-  }
   try {
     const { amount, fromAccount, toAccount, targetUserId, category } = req.body;
     const senderId = req.session.userId;
 
-    if (!amount || !fromAccount || !toAccount || !targetUserId || !category) {
+    const fromName = normalizeAccount(fromAccount);
+    const toName = normalizeAccount(toAccount);
+    if (!amount || !fromName || !toName || !targetUserId || !category)
       return res.status(400).json({ message: "Missing Paramaters." });
-    }
-    if (!isValidAccount(fromAccount) || !isValidAccount(toAccount)) {
-      return res.status(400).json({ message: "Invalid account name." });
-    }
-    if (senderId.toString() === targetUserId) {
+
+    const cleanTargetId = String(targetUserId).trim();
+    if (!ObjectId.isValid(cleanTargetId))
+      return res.status(400).json({ message: "Invalid User ID Format" });
+    if (senderId.toString() === cleanTargetId)
       return res.status(400).json({
         message: "Cannot transfer to yourself. Use Internal Transfer.",
       });
-    }
-    const transferAmount = parseFloat(amount);
-    if (isNaN(transferAmount) || transferAmount <= 0) {
-      return res.status(400).json({ message: "Invalid transfer amount." });
-    }
 
-    let targetUser;
-    try {
-      targetUser = await userCollection.findOne({
-        _id: new ObjectId(targetUserId),
-      });
-    } catch (e) {
-      return res.status(400).json({ message: "Invalid User ID Format" });
-    }
-    if (!targetUser) {
+    const transferAmount = parseFloat(amount);
+    if (isNaN(transferAmount) || transferAmount <= 0)
+      return res.status(400).json({ message: "Invalid transfer amount." });
+
+    const targetObjId = new ObjectId(cleanTargetId);
+    const targetUser = await userCollection.findOne({ _id: targetObjId });
+    if (!targetUser)
       return res.status(400).json({ message: "Target User does not exist!" });
-    }
 
     const senderUpdate = await userCollection.updateOne(
-      {
-        _id: new ObjectId(senderId),
-        [fromAccount]: { $gte: transferAmount },
-      },
-      {
-        $inc: { [fromAccount]: -transferAmount },
-      }
+      { _id: new ObjectId(senderId), [fromName]: { $gte: transferAmount } },
+      { $inc: { [fromName]: -transferAmount } }
     );
-
-    if (senderUpdate.modifiedCount === 0) {
-      return res
-        .status(400)
-        .json({ message: "Insufficient funds in your account." });
-    }
+    if (senderUpdate.modifiedCount === 0)
+      return res.status(400).json({ message: "Insufficient funds." });
 
     await userCollection.updateOne(
-      { _id: new ObjectId(targetUserId) },
-      { $inc: { [toAccount]: transferAmount } }
+      { _id: targetObjId },
+      { $inc: { [toName]: transferAmount } }
     );
 
     const newTransfer = {
       UserID: new ObjectId(senderId),
       AmountTransferred: transferAmount,
-      AccountTransferedFrom: `${fromAccount}_${senderId}`,
-      AccountTransferedTo: `${toAccount}_${targetUserId}`,
+      AccountTransferedFrom: `${fromName}_${senderId}`,
+      AccountTransferedTo: `${toName}_${cleanTargetId}`,
       TransferCategory: category,
-      transferDate: Date(),
+      TransferDate: new Date(),
       TransferType: "external",
     };
-
     await transferCollection.insertOne(newTransfer);
 
     res.status(200).json({ message: "External Transfer successful." });
   } catch (err) {
     console.error("External Transfer failed:", err);
-    return res
-      .status(500)
-      .json({ message: "An unexpected error occurred during transfer." });
+    res.status(500).json({ message: "Unexpected error during transfer." });
   }
 });
 
 recordRoutes.route("/TransfersFor").post(async (req, res) => {
-  //grab the specific history of one account transfers
-  if (!req.session.userId) {
+  if (!req.session.userId)
     return res.status(401).json({ message: "User not logged in." });
-  }
   try {
     const { account } = req.body;
     const userId = req.session.userId.toString();
 
-    if (!account) {
-      return res.status(400).json({ message: "Please enter an account." });
-    }
-    if (!isValidAccount(account)) {
-      return res
-        .status(400)
-        .json({ messgae: "Please enter a valid account name." });
-    }
+    const accountName = normalizeAccount(account);
+    if (!accountName)
+      return res.status(400).json({
+        message:
+          "Please enter a valid account (1,2,3 or checking/savings/other).",
+      });
 
-    const accountID = `${account}_${userId}`;
+    const accountID = `${accountName}_${userId}`;
 
     const results = await transferCollection
       .find({
@@ -444,21 +325,19 @@ recordRoutes.route("/TransfersFor").post(async (req, res) => {
           { AccountTransferedTo: accountID },
         ],
       })
-      .sort({ TransferDate: -1 })
+      .sort({ TransferDate: -1, transferDate: -1 })
       .toArray();
 
     res.json(results);
   } catch (err) {
     console.error("Fetching account history failed:", err);
-    return res.status(500).json({ message: "An unexpected error occurred." });
+    res.status(500).json({ message: "Unexpected error occurred." });
   }
 });
-// Current user info (balances + username)
-//JM
+
 recordRoutes.route("/me").get(async (req, res) => {
-  if (!req.session.userId) {
+  if (!req.session.userId)
     return res.status(401).json({ message: "User not logged in." });
-  }
   try {
     const user = await userCollection.findOne(
       { _id: new ObjectId(req.session.userId) },
@@ -475,7 +354,7 @@ recordRoutes.route("/me").get(async (req, res) => {
 recordRoutes.route("/logout").get(async (req, res) => {
   try {
     req.session.destroy();
-    res.status(200).json({ message: "Logged out sucessfully." });
+    res.status(200).json({ message: "Logged out successfully." });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Internal server error during logout." });
@@ -483,40 +362,27 @@ recordRoutes.route("/logout").get(async (req, res) => {
 });
 
 recordRoutes.route("/CategorySummary").get(async (req, res) => {
-  if (!req.session.userId) {
+  if (!req.session.userId)
     return res.status(401).json({ message: "User not logged in." });
-  }
   try {
     const userId = new ObjectId(req.session.userId);
-    console.log(`userID is ${userId}`);
 
     const categorySummaryFind = await transferCollection.aggregate([
-      {
-        $match: {
-          UserID: userId,
-        },
-      },
+      { $match: { UserID: userId } },
       {
         $group: {
           _id: "$TransferCategory",
-          totalAmount: {
-            $sum: "$AmountTransferred",
-          },
+          totalAmount: { $sum: "$AmountTransferred" },
         },
       },
-      {
-        $sort: {
-          totalAmount: -1,
-        },
-      },
+      { $sort: { totalAmount: -1 } },
     ]);
 
     const categorySummary = await categorySummaryFind.toArray();
-    console.log(categorySummary);
-    return res.status(200).json(categorySummary);
+    res.status(200).json(categorySummary);
   } catch (err) {
     console.error("Fetching Category Summary failed:", err);
-    return res.status(500).json({ message: "An unexpected error occurred." });
+    res.status(500).json({ message: "An unexpected error occurred." });
   }
 });
 
