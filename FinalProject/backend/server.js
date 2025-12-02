@@ -11,10 +11,11 @@ const { Server } = require("socket.io");
 const { connectToDatabase } = require("./src/database");
 
 // Routes
-const sessionRoutes = require("./src/routes/sessionRoutes");
-const gameRoutes = require("./src/routes/gameRoutes");
-const scoreRoutes = require("./src/routes/scoreRoutes");
-
+/*
+const sessionRoutes = require("./src/routes/sessionRoute");
+const gameRoutes = require("./src/routes/gameRoute");
+const saveRoutes = require("./src/routes/saveRoute");
+*/
 // Socket handler
 const setupSocket = require("./src/socket/socketHandler");
 
@@ -33,10 +34,11 @@ app.get("/api/health", (req, res) => {
 });
 
 // Mount API routes
+/*
 app.use("/api/session", sessionRoutes);
 app.use("/api/game", gameRoutes);
-app.use("/api/scores", scoreRoutes);
-
+app.use("/api/scores", saveRoutes);
+*/
 // Create HTTP server
 const httpServer = http.createServer(app);
 
