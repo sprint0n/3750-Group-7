@@ -2,7 +2,7 @@
 
 //This creates the deck of cards
 function createDeck(){
-    const cardNum = [1,2,3,4,5,6,7,8,9,10,"J","Q","K","A"];
+    const cardNum = [1,2,3,4,5,6,7,8,9,10,11,12,13];
     const cardSuit = ["H","D","C","S"];
     const deck = [];
 
@@ -26,30 +26,41 @@ function shuffleDeck(deck) {
 // Draw a card 
 function drawCard(deck) {
  // removes last card
-  return deck.pop(); 
+  return deck.pop() || null; 
 }
 
-// Deal hands to players
-function dealHands(deck, numPlayers, cardsPerPlayer) {
-  const hands = [];
-  for (let p = 0; p < numPlayers; p++) {
-    hands[p] = [];
-    for (let c = 0; c < cardsPerPlayer; c++) {
-      hands[p].push(drawCard(deck));
-    }
+function initalizeGame(){
+  let deck = createDeck();
+  deck = shuffleDeck();
+
+  const p1Hand = [];
+  const p2Hand = [];
+  const p1DrawPile = [];
+  const p2DrawPile = [];
+  let centerPile1 = [];
+  let centerPile2 = [];
+
+  for(let c = 0; c < 5; c++){
+    p1Hand.push(drawCard(deck));
+    p2Hand.push(drawCard(deck));
   }
-  return hands;
+  for(let c = 0; c < 15; c++){
+    p1DrawPile.push(drawCard(deck));
+    p2DrawPile.push(drawCard(deck));
+  }
+  centerPile1.push(drawCard(deck));
+  centerPile2.push(drawCard(deck));
+
+  return {
+    player1ID: '',
+    player2ID: '',
+    status: 'waiting',
+    deck: deck,
+    player1: {hand: p1Hand, drawPile: p1DrawPile, isStalemate: false},
+    player2: {hand: p2Hand, drawPile: p2DrawPile, isStalemate: false},
+    center: {pile1: centerPile1, pile2: centerPile2},
+  };
 }
-
-// Example usage:
-let deck = createDeck();
-deck = shuffleDeck(deck);
-
-// Deal 5 cards to 2 players
-const hands = dealHands(deck, 2, 5); 
-console.log("Player 1 hand:", hands[0]);
-console.log("Player 2 hand:", hands[1]);
-console.log("Remaining deck size:", deck.length);
 
 
 
