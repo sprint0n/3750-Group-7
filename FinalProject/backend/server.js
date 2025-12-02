@@ -11,11 +11,11 @@ const { Server } = require("socket.io");
 const { connectToDatabase } = require("./src/database");
 
 // Routes
-/*
+
 const sessionRoutes = require("./src/routes/sessionRoute");
-const gameRoutes = require("./src/routes/gameRoute");
+//const gameRoutes = require("./src/routes/gameRoute");
 const saveRoutes = require("./src/routes/saveRoute");
-*/
+
 // Socket handler
 const setupSocket = require("./src/socket/socketHandler");
 
@@ -29,16 +29,16 @@ app.use(express.json());
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
-    message: "Hangman backend running",
+    message: "Card game is running",
   });
 });
 
 // Mount API routes
-/*
+
 app.use("/api/session", sessionRoutes);
-app.use("/api/game", gameRoutes);
+//app.use("/api/game", gameRoutes);
 app.use("/api/scores", saveRoutes);
-*/
+
 // Create HTTP server
 const httpServer = http.createServer(app);
 
