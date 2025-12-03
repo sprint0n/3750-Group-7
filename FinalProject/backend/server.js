@@ -1,63 +1,31 @@
-// server.js
-
-require("dotenv").config();
-
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
-const { Server } = require("socket.io");
+const connectDB = require("./src/db/database");
 
-// MongoDB connection
-const { connectToDatabase } = require("./src/database");
-
-// Routes
-
-const sessionRoutes = require("./src/routes/sessionRoute");
-//const gameRoutes = require("./src/routes/gameRoute");
-const saveRoutes = require("./src/routes/saveRoute");
-
-// Socket handler
-const setupSocket = require("./src/socket/socketHandler");
+const sessionRoute = require("./src/routes/sessionRoute");
+const resultsRoute = require("./src/routes/resultsRoute");
 
 const app = express();
+const server = http.createServer(app);
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Health check
-app.get("/api/health", (req, res) => {
-  res.json({
-    status: "ok",
-    message: "Card game is running",
-  });
-});
+// Routes
+app.use("/api/sessions", sessionRoute);
+app.use("/api/results", resultsRoute);
 
-// Mount API routes
+// Socket.IO
+require("./socket")(server);
 
-app.use("/api/session", sessionRoutes);
-//app.use("/api/game", gameRoutes);
-app.use("/api/scores", saveRoutes);
+const PORT = 4000;
 
-// Create HTTP server
-const httpServer = http.createServer(app);
-
-// Create Socket.io server
-const io = new Server(httpServer, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-  },
-});
-
-// Load socket.io events
-setupSocket(io);
-
-const PORT = process.env.PORT || 4000;
-
-// Connect to MongoDB, then start the server
-connectToDatabase().then(() => {
-  httpServer.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
-  });
+connectDB().then(() => {
+  console.log("✔ MongoDB Connected!"); // Will print when Mongo is connected
+  server.listen(PORT, "0.0.0.0", () =>
+    console.log(`Server running on ${PORT} and accessible on LAN`)
+  );
+}).catch(err => {
+  console.error("❌ Failed to connect to MongoDB:", err);
 });
