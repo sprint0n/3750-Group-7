@@ -1,0 +1,30 @@
+.header {
+  background-color: #2c3e50;
+  color: white;
+  padding: 2rem 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  align-items: center;
+}
+.list {
+  display: flex;
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.list a {
+  color: #ecf0f1;
+  font-weight: 500;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.list a:hover {
+  color: darkcyan;
+  transform: translateY(-1px);
+}
+
+.list a.active {
+  border-bottom: 2px solid darkcyan;
+  padding-bottom: 2px;
+}

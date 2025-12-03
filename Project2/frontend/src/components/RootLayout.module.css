@@ -1,0 +1,28 @@
+.root-layout {
+  background-color: #f7f8fa;
+  min-height: 150vh;
+  display: flex;
+  flex-direction: column;
+  font-family: system-ui, sans-serif;
+  color: #333;
+  width: 100vw;
+  height: 100vh;
+}
+
+.main-content {
+  padding: 10rem;
+  flex: 1;
+  max-width: 900px;
+  width: 90%;
+  margin: 2rem auto;
+  background-color: white;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.loading {
+  text-align: center;
+  color: #555;
+  font-style: italic;
+  margin-bottom: 1rem;
+}
