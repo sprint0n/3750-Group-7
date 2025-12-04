@@ -1,0 +1,234 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: #222;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.app-container {
+  height: 100vh;
+  width: 100vw;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.name-form {
+  display: flex;
+  gap: 10px;
+}
+
+.name-form input {
+  width: 180px;
+  padding: 8px;
+  text-align: center;
+}
+
+.name-form button {
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.waiting-screen {
+  text-align: center;
+  font-size: 18px;
+  color: white;
+}
+.countdown-screen {
+  color: white;
+  font-size: 64px;
+  font-weight: bold;
+}
+
+:root {
+  --card-width: 130px;
+}
+
+.card {
+  width: var(--card-width);
+  aspect-ratio: 2.5 / 3.5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.table {
+  height: 100vh;
+  width: 100%;
+  background: #1e1e1e;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 40px 20px;
+}
+
+.hand {
+  display: flex;
+  gap: 12px;
+}
+
+.top-hand {
+  margin-top: 10px;
+}
+
+.bottom-hand {
+  margin-bottom: 10px;
+}
+
+
+.middle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.center-piles {
+  display: flex;
+  gap: 40px;
+}
+
+.draw-piles {
+  display: flex;
+  gap: 60px;
+}
+.speed-board {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 40px;
+  width: 100%;
+  max-width: 1100px;
+}
+
+.player-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.hand-row {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+.middle-area {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 40px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+
+.label {
+  font-size: 15px;
+  font-weight: 500;
+  opacity: 0.9;
+  text-align: center;
+}
+
+.controls {
+  display: flex;
+  gap: 12px;
+}
+
+.controls button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  background: #333;
+  color: white;
+  cursor: pointer;
+}
+
+.controls button:hover {
+  background: #555;
+}
+
+.hand-row {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+.board-container {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 48px;
+}
+
+.screen input {
+  padding: 10px 12px;
+}
+
+.screen button {
+  margin-left: 12px;
+}
+
+/*just the result shiz*/
+
+.results-screen {
+  max-width: 700px;
+  margin: 60px auto;
+  text-align: center;
+}
+
+.results-screen h2 {
+  margin-bottom: 10px;
+}
+
+.winner-name {
+  color: #4ade80;
+  font-weight: bold;
+}
+
+.subtitle {
+  margin-bottom: 25px;
+  opacity: 0.85;
+}
+
+.results-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.results-header,
+.results-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 10px;
+}
+
+.results-header {
+  font-weight: bold;
+  border-bottom: 2px solid #444;
+}
+
+.results-row {
+  background: #1f1f1f;
+  border-radius: 6px;
+}
