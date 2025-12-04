@@ -1,1 +1,0 @@
-//This has the get and call from the database for game results
