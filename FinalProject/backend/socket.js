@@ -9,29 +9,52 @@ module.exports = (server) => {
   io.on("connection", (socket) => {
     console.log("Player connected:", socket.id);
 
-    const match = sessionManager.matchPlayer(socket);
+    socket.on("joinGame", ({ playerId, playerName }) => {
+      socket.data.id = playerId;
+      socket.data.name = playerName;
 
-    // If match NOT found → first player waits
-    if (!match) {
-      socket.emit("waiting", "Waiting for another player...");
-      return;
-    }
+      const player = { id: playerId, name: playerName, socketId: socket.id };
+      const match = sessionManager.matchPlayer(player, socket); 
 
-    // Both players found
-    const { session, p1, p2 } = match;
+  
+      if (!match) {
+        socket.emit("waiting", "Waiting for another player...");
+        return;
+      }
 
-    p1.join(session.id);
-    p2.join(session.id);
 
-    // Initialize game
-    const initialState = gameLogic.startGame(session);
+      const { session, p1Socket, p2Socket } = match;
 
-    io.to(session.id).emit("gameStart", {
-      sessionId: session.id,
-      state: initialState
+
+      p1Socket.join(session.id);
+      p2Socket.join(session.id);
+
+      // Initialize game
+      const initialState = gameLogic.startGame(session);
+
+      io.to(session.id).emit("gameStart", {
+        sessionId: session.id,
+        players: session.players,
+        state: initialState
+      });
     });
 
-    // Handle moves
+
+    socket.on("checkStalemate", (data) => {
+      const result = gameLogic.handleStalemate(data.sessionId);
+
+      if (result.stalemate) {
+        io.to(data.sessionId).emit("gameUpdate", {
+          ok: true,
+          stalemate: true,
+          message: "Piles reshuffled due to stalemate.",
+          state: result.state
+        });
+      } else {
+        socket.emit("error", { message: "Not a stalemate. A move is still available." });
+      }
+    });
+
     socket.on("playCard", (data) => {
       const result = gameLogic.handleMove(data);
 
@@ -42,8 +65,25 @@ module.exports = (server) => {
       }
     });
 
+
     socket.on("disconnect", () => {
       console.log("Player disconnected:", socket.id);
+
+      const session = sessionManager.findSessionBySocketId(socket.id); 
+      
+      if (session) {
+        const opponentId = session.players.find(p => p.socketId !== socket.id)?.id;
+        
+
+        io.to(session.id).emit("opponentDisconnected", { 
+          message: `${socket.data.name || 'An opponent'} disconnected. Game ended.`,
+          opponentId: socket.data.id 
+        });
+        
+        sessionManager.deleteSession(session.id);
+      } else {
+         sessionManager.removeFromWaitingList(socket.id);
+      }
     });
   });
 };

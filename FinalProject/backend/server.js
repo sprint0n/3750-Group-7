@@ -22,7 +22,6 @@ require("./socket")(server);
 const PORT = 4000;
 
 connectDB().then(() => {
-  console.log("✔ MongoDB Connected!"); // Will print when Mongo is connected
   server.listen(PORT, "0.0.0.0", () =>
     console.log(`Server running on ${PORT} and accessible on LAN`)
   );

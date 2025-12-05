@@ -1,4 +1,3 @@
-// gameLogic.js
 const { saveResult } = require("../db/resultsRepo");
 
 function createDeck() {
@@ -18,6 +17,87 @@ function shuffle(deck) {
   }
   return deck;
 }
+
+// Helper function to check if a player can make *any* valid move
+function canPlay(hand, piles) {
+  const leftPileValue = piles.left.value;
+  const rightPileValue = piles.right.value;
+
+  for (const card of hand) {
+    const cardValue = card.value;
+
+    // Check against left pile
+    let validLeft =
+      Math.abs(cardValue - leftPileValue) === 1 ||
+      (cardValue === 1 && leftPileValue === 13) ||
+      (cardValue === 13 && leftPileValue === 1);
+
+    if (validLeft) return true;
+
+    // Check against right pile
+    let validRight =
+      Math.abs(cardValue - rightPileValue) === 1 ||
+      (cardValue === 1 && rightPileValue === 13) ||
+      (cardValue === 13 && rightPileValue === 1);
+
+    if (validRight) return true;
+  }
+  return false;
+}
+
+// Resets the play piles state in case of a stalemate
+function resetPiles(session) {
+  // Gather all cards from the two current play piles
+  const cardsToReshuffle = [session.state.piles.left, session.state.piles.right];
+
+  // Reshuffle them
+  shuffle(cardsToReshuffle);
+
+  // Set the new play piles
+  session.state.piles.left = cardsToReshuffle.pop();
+  session.state.piles.right = cardsToReshuffle.pop();
+
+
+  return session.state;
+}
+
+// New function to handle the stalemate logic
+function handleStalemate(sessionId) {
+  const sessionManager = require("./gameSessionManager");
+  const session = sessionManager.getSession(sessionId);
+  if (!session) return { error: "Session not found", ok: false };
+
+  const p1Id = session.players[0].id;
+  const p2Id = session.players[1].id;
+  const p1Hand = session.state.hands[p1Id];
+  const p2Hand = session.state.hands[p2Id];
+  const piles = session.state.piles;
+
+  // Check if neither player has a valid move against the current play piles
+  const p1CanPlay = canPlay(p1Hand, piles);
+  const p2CanPlay = canPlay(p2Hand, piles);
+
+  if (!p1CanPlay && !p2CanPlay) {
+    // This is the condition for reshuffling the play piles
+    const newState = resetPiles(session);
+
+    return {
+      ok: true,
+      stalemate: true,
+      message: "Stalemate reached! Play piles have been reshuffled.",
+      state: newState
+    };
+  }
+
+  // Not a stalemate (a move is still available)
+  return {
+    ok: true,
+    stalemate: false,
+    message: "A move is still available.",
+    state: session.state
+  };
+}
+
 
 module.exports = {
   // Initialize game state
@@ -102,5 +182,7 @@ module.exports = {
       gameOver: false,
       state: session.state
     };
-  }
+  },
+
+  handleStalemate
 };

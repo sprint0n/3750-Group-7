@@ -11,16 +11,16 @@ async function connectDB() {
 
   const uri = process.env.MONGO_URI;
   if (!uri) {
-    console.error("❌ MONGO_URI is missing in .env file");
+    console.error("MONGO_URI is missing in .env file");
     process.exit(1);
   }
 
   try {
     const conn = await mongoose.connect(uri); 
     isConnected = true;
-    console.log(`✔ MongoDB Connected: ${conn.connection.host}`);
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (err) {
-    console.error("❌ MongoDB Connection Error:", err.message);
+    console.error("MongoDB Connection Error:", err.message);
   }
 }
 

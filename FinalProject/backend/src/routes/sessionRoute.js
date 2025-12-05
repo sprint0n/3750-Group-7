@@ -47,4 +47,32 @@ router.post("/:sessionId/move", (req, res) => {
   res.json({ success: true, ...result });
 });
 
+router.post("/:sessionId/stalemate", (req, res) => {
+    const { sessionId } = req.params;
+
+    const session = sessionManager.getSession(sessionId);
+    if (!session) return res.status(404).json({ success: false, message: "Session not found" });
+
+    // Assuming no move
+    const result = gameLogic.handleStalemate(sessionId);
+
+    if (!result.ok) return res.status(400).json({ success: false, message: result.error });
+
+    // Check if the game logic determined a stalemate was reached
+    if (result.stalemate) {
+        return res.json({ 
+            success: true, 
+            message: result.message, 
+            state: result.state 
+        });
+    }
+    
+    // If not a stalemate, reject the request (since a move is available)
+    return res.status(400).json({ 
+        success: false, 
+        message: "Stalemate was not reached. A valid move is still available.",
+        state: result.state
+    });
+});
+
 module.exports = router;
