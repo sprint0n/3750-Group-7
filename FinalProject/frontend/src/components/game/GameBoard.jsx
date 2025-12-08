@@ -27,11 +27,12 @@ function GameBoard({ socket, playerId, playerName, onNextScreen }) {
   const [sessionId] = useState(socket.session.sessionId);
   const [draggedCard, setDraggedCard] = useState(null);
   const [statusMessage, setStatusMessage] = useState("");
-  const [p1CantPlayStatus, setP1CantPlayStatus] = useState(false); 
 
     const myHand = gameState?.hands?.[playerId] || [];
     const opponentId = useMemo(() => socket.session.players.find(p => p.id !== playerId)?.id, [socket.session, playerId]);
     const opponentHandLength = gameState?.hands?.[opponentId]?.length || 0;
+    const myCantPlayStatus = gameState?.cantPlay?.[playerId] || false;
+    const myStackReadyStatus = gameState?.stackReady?.[playerId] || false;
 
 
     const myStockPileLength = gameState?.stockPiles?.[playerId]?.length || 0; 
@@ -54,7 +55,6 @@ function GameBoard({ socket, playerId, playerName, onNextScreen }) {
       
       setGameState(data.state);
       setStatusMessage(data.message || "");
-      setP1CantPlayStatus(false); // Reset 'can't play' status after a successful update/move
 
       // Handle game over
       if (data.gameOver) {
@@ -79,19 +79,18 @@ function GameBoard({ socket, playerId, playerName, onNextScreen }) {
 
   useEffect(() => {
     if (myHand.length < 5 && myStockPileLength > 0){
-      const drawTimer = setTimeout(() => {
         socket.emit("drawCard", {
           sessionId, 
           playerId
         });
-      }, 200);
-      return () => clearTimeout(drawTimer);
-        }
+      }
   }, [myHand.length, myStockPileLength, socket, sessionId, playerId])
 
 
   // --- Game Actions ---
-
+function handleStackUp() {
+    socket.emit("stackUp", { sessionId, playerId });
+}
   
   function handleDrop(pileSide) {
     if (!draggedCard) return;
@@ -109,10 +108,7 @@ function GameBoard({ socket, playerId, playerName, onNextScreen }) {
     socket.emit("playCard", {
       sessionId,
       playerId,
-      card: { 
-        value: getCardValue(draggedCard), // Convert back to number for backend logic
-        suit: draggedCard.suit.charAt(0).toUpperCase() // Convert 'spades' to 'S' for backend logic
-      },
+      card: draggedCard,
       pileSide
     });
 
@@ -120,8 +116,6 @@ function GameBoard({ socket, playerId, playerName, onNextScreen }) {
   }
 
   function handleCantPlay() {
-    setP1CantPlayStatus(true);
-    // Notify the server to check for a full stalemate
     socket.emit("checkStalemate", { sessionId });
   }
 
@@ -194,9 +188,12 @@ return (
                 {/* Player 1 area*/}
                 <div className="player-area my-area">
                     <div className="controls">
-                        <button onClick={handleCantPlay} disabled={p1CantPlayStatus}>
-                            {p1CantPlayStatus ? "Waiting for Opponent..." : "Can't Play"}
+                        <button onClick={handleCantPlay} disabled={myCantPlayStatus}>
+                            {myCantPlayStatus ? "Waiting for Opponent..." : "Can't Play"}
                         </button>
+                        <button onClick={handleStackUp} disabled={myStackReadyStatus}>
+                          {myStackReadyStatus ? "Waiting for Opponent to Flip..." : "Flip Card"}
+                      </button>
                     </div>
 
                     <div className="label">

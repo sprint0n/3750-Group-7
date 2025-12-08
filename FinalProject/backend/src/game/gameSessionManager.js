@@ -1,36 +1,49 @@
-
 class GameSessionManager {
   constructor() {
-    this.waitingPlayer = null;      
-    this.sessions = {};             
+    console.log("Waiting Player State is Reset");
+    this.waitingPlayer = null;
+    this.sessions = {};
   }
 
   // Create a new session
   createSession(p1, p2) {
-    const sessionId = `${p1.id}-${p2.id}`;
+    const p1Data = { id: p1.id, name: p1.name, socketId: p1.socketId };
+    const p2Data = { id: p2.id, name: p2.name, socketId: p2.socketId }; 
+    
+    const sessionId = `${p1Data.id}-${p2Data.id}`;
     const session = {
       id: sessionId,
-      players: [p1, p2],       
-      state: null,             
+      players: [p1Data, p2Data], 
+      state: null,
       createdAt: Date.now()
     };
     this.sessions[sessionId] = session;
     return session;
   }
 
-  // Match a player with waiting player
-  matchPlayer(player) {
-    if (!this.waitingPlayer) {
-      this.waitingPlayer = player;
-      return null; // still waiting
-    }
+  matchPlayer(player, currentSocket) {
+   if (!this.waitingPlayer) {
+      this.waitingPlayer = { ...player, socket: currentSocket}; 
+      console.log(`[MATCH] Player ${player.name} (${player.socketId}) is now WAITING.`); // ADDED
+      return null; 
+    }
 
-    const session = this.createSession(this.waitingPlayer, player);
-    const p1 = this.waitingPlayer;
-    const p2 = player;
+    console.log("Match has been found!");
+    // Use the name property for better debugging
+    console.log(`Match between ${this.waitingPlayer.name} and ${player.name}`); // CORRECTED
+    // Match found!
+    const p1 = this.waitingPlayer;
+    const p2Data = player; 
+    
+    const session = this.createSession(p1, p2Data);
+    
     this.waitingPlayer = null;
 
-    return { session, p1, p2 };
+    return { 
+        session, 
+        p1Socket: p1.socket, 
+        p2Socket: currentSocket 
+    };
   }
 
   // Get session by ID
@@ -43,7 +56,7 @@ class GameSessionManager {
     delete this.sessions[sessionId];
   }
 
-  findSessionBySocketId(socketId) {
+ findSessionBySocketId(socketId) {
     const sessionKeys = Object.keys(this.sessions);
     for (const key of sessionKeys) {
         const session = this.sessions[key];
@@ -61,6 +74,8 @@ class GameSessionManager {
       }
       return false;
   }
+
 }
+
 
 module.exports = new GameSessionManager();

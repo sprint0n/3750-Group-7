@@ -14,7 +14,7 @@ module.exports = (server) => {
       socket.data.name = playerName;
 
       const player = { id: playerId, name: playerName, socketId: socket.id };
-      const match = sessionManager.matchPlayer(player); 
+      const match = sessionManager.matchPlayer(player, socket); 
 
   
       if (!match) {
@@ -23,18 +23,13 @@ module.exports = (server) => {
       }
 
 
-      const { session, p1, p2 } = match;
-      
-      const p1Socket = io.sockets.sockets.get(p1.socketId);
-      const p2Socket = io.sockets.sockets.get(p2.socketId);
+      const { session, p1Socket, p2Socket } = match;
 
-      if(!p1Socket || !p2Socket){
-        console.error("Matched socket not found!");
-        return;
-      }
 
       p1Socket.join(session.id);
       p2Socket.join(session.id);
+
+      console.log(`Match between ${p1Socket} and ${p2Socket}`);
 
       // Initialize game
       const initialState = gameLogic.startGame(session);
@@ -47,24 +42,23 @@ module.exports = (server) => {
     });
 
 
-   socket.on("checkStalemate", (data) => {
-      const result = gameLogic.handleStalemate(data.sessionId);
+    socket.on("checkStalemate", (data) => {
+      const result = gameLogic.handleStalemate({
+          sessionId: data.sessionId,
+          playerId: data.playerId || socket.data.id  
+      }); 
 
-      if (result.stalemate) {
+      if (result.ok) {
         io.to(data.sessionId).emit("gameUpdate", {
           ok: true,
-          stalemate: true,
-          message: "Piles reshuffled due to stalemate.",
+          stalemate: result.stalemate,
+          message: result.message,
           state: result.state
         });
       } else {
-        io.to(data.sessionId).emit("gameUpdate", { 
-            ok: false, 
-            message: "Not a stalemate. A move is still available." 
-        });
+        socket.emit("error", { message: result.error });
       }
     });
-
     socket.on("playCard", (data) => {
       const result = gameLogic.handleMove(data);
 
@@ -79,22 +73,45 @@ module.exports = (server) => {
       const result = gameLogic.handleDrawCard(data);
 
       if (result.ok) {
-        io.to(data.sessionId).emit("gameUpdate", result);
+        io.to(data.sessionId).emit("gameUpdate", {
+          ok: true,
+          message: result.message,
+          state: result.state
+        });
       } else {
-        socket.emit("error", { message: result.error }); 
+        socket.emit("error", { message: result.error });
       }
     });
+
+    socket.on("stackUp", (data) => {
+      const result = gameLogic.handleStackUp({ 
+        sessionId: data.sessionId, 
+        playerId: data.playerId || socket.data.id
+      });
+
+      if (result.ok) {
+        io.to(data.sessionId).emit("gameUpdate", {
+          ok: true,
+          flipped: result.flipped,
+          message: result.message,
+          state: result.state
+        });
+      } else {
+        socket.emit("error", { message: result.error });
+      }
+    });
+
 
 
     socket.on("disconnect", () => {
       console.log("Player disconnected:", socket.id);
 
-      // We now rely on the new functions added to GameSessionManager
       const session = sessionManager.findSessionBySocketId(socket.id); 
       
       if (session) {
-        const opponent = session.players.find(p => p.socketId !== socket.id);
+        const opponentId = session.players.find(p => p.socketId !== socket.id)?.id;
         
+
         io.to(session.id).emit("opponentDisconnected", { 
           message: `${socket.data.name || 'An opponent'} disconnected. Game ended.`,
           opponentId: socket.data.id 

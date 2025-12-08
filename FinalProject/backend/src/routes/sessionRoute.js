@@ -5,25 +5,13 @@ const sessionManager = require("../game/gameSessionManager");
 
 // Join or create a session
 router.post("/join", (req, res) => {
-  const { playerId, playerName } = req.body;
-  if (!playerId || !playerName)
-    return res.status(400).json({ success: false, message: "Missing playerId or playerName" });
-
-  const match = sessionManager.matchPlayer({ id: playerId, name: playerName });
-
-  if (!match) {
-    return res.json({ success: true, message: "Waiting for another player..." });
-  }
-
-  const { session, p1, p2 } = match;
- 
-
-  res.json({
-    success: true,
-    sessionId: session.id,
-    players: session.players,
-    state: session.state
-  });
+  const { playerId, playerName } = req.body;
+  if (!playerId || !playerName)
+    return res.status(400).json({ success: false, message: "Missing playerId or playerName" });
+  return res.json({ 
+        success: true, 
+        message: "Player confirmed. Please connect via Socket.IO to start matchmaking." 
+    });
 });
 
 // Get session state
