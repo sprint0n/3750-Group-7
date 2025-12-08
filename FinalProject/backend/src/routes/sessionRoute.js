@@ -16,7 +16,7 @@ router.post("/join", (req, res) => {
   }
 
   const { session, p1, p2 } = match;
-  gameLogic.startGame(session);
+ 
 
   res.json({
     success: true,

@@ -14,7 +14,7 @@ module.exports = (server) => {
       socket.data.name = playerName;
 
       const player = { id: playerId, name: playerName, socketId: socket.id };
-      const match = sessionManager.matchPlayer(player, socket); 
+      const match = sessionManager.matchPlayer(player); 
 
   
       if (!match) {
@@ -23,8 +23,15 @@ module.exports = (server) => {
       }
 
 
-      const { session, p1Socket, p2Socket } = match;
+      const { session, p1, p2 } = match;
+      
+      const p1Socket = io.sockets.sockets.get(p1.socketId);
+      const p2Socket = io.sockets.sockets.get(p2.socketId);
 
+      if(!p1Socket || !p2Socket){
+        console.error("Matched socket not found!");
+        return;
+      }
 
       p1Socket.join(session.id);
       p2Socket.join(session.id);
@@ -40,7 +47,7 @@ module.exports = (server) => {
     });
 
 
-    socket.on("checkStalemate", (data) => {
+   socket.on("checkStalemate", (data) => {
       const result = gameLogic.handleStalemate(data.sessionId);
 
       if (result.stalemate) {
@@ -51,7 +58,10 @@ module.exports = (server) => {
           state: result.state
         });
       } else {
-        socket.emit("error", { message: "Not a stalemate. A move is still available." });
+        io.to(data.sessionId).emit("gameUpdate", { 
+            ok: false, 
+            message: "Not a stalemate. A move is still available." 
+        });
       }
     });
 
@@ -65,16 +75,26 @@ module.exports = (server) => {
       }
     });
 
+    socket.on("drawCard", (data) => {
+      const result = gameLogic.handleDrawCard(data);
+
+      if (result.ok) {
+        io.to(data.sessionId).emit("gameUpdate", result);
+      } else {
+        socket.emit("error", { message: result.error }); 
+      }
+    });
+
 
     socket.on("disconnect", () => {
       console.log("Player disconnected:", socket.id);
 
+      // We now rely on the new functions added to GameSessionManager
       const session = sessionManager.findSessionBySocketId(socket.id); 
       
       if (session) {
-        const opponentId = session.players.find(p => p.socketId !== socket.id)?.id;
+        const opponent = session.players.find(p => p.socketId !== socket.id);
         
-
         io.to(session.id).emit("opponentDisconnected", { 
           message: `${socket.data.name || 'An opponent'} disconnected. Game ended.`,
           opponentId: socket.data.id 

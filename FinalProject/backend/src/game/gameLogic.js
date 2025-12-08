@@ -1,11 +1,30 @@
 const { saveResult } = require("../db/resultsRepo");
 
+const valueMap = {
+  1: "ace", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 7: "7", 8: "8", 9: "9", 10: "10", 11: "jack", 12: "queen", 13: "king",
+};
+const suitMap = {
+  "H": "hearts", "D": "diamonds", "C": "clubs", "S": "spades",
+};
+
+
 function createDeck() {
   const nums = [1,2,3,4,5,6,7,8,9,10,11,12,13];
   const suits = ["H","D","C","S"];
   const deck = [];
 
-  nums.forEach(n => suits.forEach(s => deck.push({ value: n, suit: s })));
+ nums.forEach(n => suits.forEach(s => {
+    const valueStr = valueMap[n];
+    const suitStr = suitMap[s];
+
+    deck.push({
+      numValue: n,
+      value: valueStr,
+      suit: suitStr,
+      id: `${valueStr}_of_${suitStr}`,
+      image: `/cards/${valueStr}_of_${suitStr}.png`,
+    });
+  }));
 
   return deck;
 }
@@ -20,11 +39,11 @@ function shuffle(deck) {
 
 // Helper function to check if a player can make *any* valid move
 function canPlay(hand, piles) {
-  const leftPileValue = piles.left.value;
-  const rightPileValue = piles.right.value;
+  const leftPileValue = piles.left.numValue;
+  const rightPileValue = piles.right.numValue;
 
   for (const card of hand) {
-    const cardValue = card.value;
+    const cardValue = card.numValue;
 
     // Check against left pile
     let validLeft =
@@ -105,8 +124,11 @@ module.exports = {
     let deck = shuffle(createDeck());
 
     // 20 cards each player
-    const p1Hand = deck.splice(0, 20);
-    const p2Hand = deck.splice(0, 20);
+    const p1Hand = deck.splice(0, 5);
+    const p2Hand = deck.splice(0, 5);
+
+    const p1Stock = deck.splice(0,20);
+    const p2Stock = deck.splice(0,20);
 
     // Two play piles
     const piles = {
@@ -120,6 +142,10 @@ module.exports = {
         [session.players[0].id]: p1Hand,
         [session.players[1].id]: p2Hand
       },
+      stockPiles: { 
+        [session.players[0].id]: p1Stock, 
+        [session.players[1].id]: p2Stock 
+      },
       piles
     };
 
@@ -127,7 +153,7 @@ module.exports = {
   },
 
   // Handle a player move
-  handleMove({ sessionId, playerId, card, pileSide }) {
+ handleMove({ sessionId, playerId, card, pileSide }) {
     const sessionManager = require("./gameSessionManager");
     const session = sessionManager.getSession(sessionId);
     if (!session) return { error: "Session not found", ok: false };
@@ -138,24 +164,26 @@ module.exports = {
     const pile = session.state.piles[pileSide];
     if (!pile) return { error: "Pile not found", ok: false };
 
-    // Find the card in player's hand
-    const index = hand.findIndex(
-      c => c.value === card.value && c.suit === card.suit
-    );
-    if (index === -1) return { error: "Card not found", ok: false };
+    const incomingCardNumValue = card.value; 
+    const incomingCardSuitInitial = card.suit;
+    
+    const index = hand.findIndex(c => {
+        return c.numValue === incomingCardNumValue;
+    });
 
-    // Check if move is valid (Classic Speed rules)
+    if (index === -1) return { error: "Card not found in hand", ok: false };
+
+    const cardToPlay = hand[index];
+
     const valid =
-      Math.abs(card.value - pile.value) === 1 ||
-      (card.value === 1 && pile.value === 13) ||
-      (card.value === 13 && pile.value === 1);
+        Math.abs(cardToPlay.numValue - pile.numValue) === 1 || 
+        (cardToPlay.numValue === 1 && pile.numValue === 13) ||
+        (cardToPlay.numValue === 13 && pile.numValue === 1);
 
     if (!valid) return { error: "Invalid move", ok: false };
 
-    // Update pile
-    session.state.piles[pileSide] = card;
+    session.state.piles[pileSide] = cardToPlay; 
 
-    // Remove card from player's hand
     hand.splice(index, 1);
 
     // Check for game over
@@ -181,6 +209,26 @@ module.exports = {
       ok: true,
       gameOver: false,
       state: session.state
+    };
+  },
+  handleDrawCard({ sessionId, playerId }) {
+    const sessionManager = require("./gameSessionManager");
+    const session = sessionManager.getSession(sessionId);
+    if (!session) return { error: "Session not found", ok: false };
+
+    const stock = session.state.stockPiles[playerId];
+    const hand = session.state.hands[playerId];
+
+    if (hand.length >= 5) return { error: "Hand is full (max 5 cards)", ok: false };
+    if (stock.length === 0) return { error: "Draw pile is empty", ok: false };
+
+    const card = stock.pop(); // Take card from the stock pile
+    hand.push(card); // Add it to the hand
+
+    return {
+      ok: true,
+      state: session.state,
+      message: `${session.players.find(p => p.id === playerId).name} drew a card.`
     };
   },
 

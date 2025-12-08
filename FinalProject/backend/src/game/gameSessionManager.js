@@ -42,6 +42,25 @@ class GameSessionManager {
   deleteSession(sessionId) {
     delete this.sessions[sessionId];
   }
+
+  findSessionBySocketId(socketId) {
+    const sessionKeys = Object.keys(this.sessions);
+    for (const key of sessionKeys) {
+        const session = this.sessions[key];
+        if (session.players.some(p => p.socketId === socketId)) {
+            return session;
+        }
+    }
+    return null;
+  }
+
+  removeFromWaitingList(socketId) {
+      if (this.waitingPlayer && this.waitingPlayer.socketId === socketId) {
+          this.waitingPlayer = null;
+          return true;
+      }
+      return false;
+  }
 }
 
 module.exports = new GameSessionManager();
