@@ -1,15 +1,24 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import io from "socket.io-client";
 
 import NameForm from "./components/game/NameForm";
 import WaitingScreen from "./components/game/WaitingScreen";
 import CountdownScreen from "./components/game/CountdownScreen";
 import GameBoard from "./components/game/GameBoard";
-import NameScreen from "./components/game/NameScreen";
 import ResultsScreen from "./components/game/ResultsScreen";
+
+const socket = io("http://localhost:4000");
 
 function App() {
   const [screen, setScreen] = useState("name");
   const [playerName, setPlayerName] = useState("");
+  const [playerId, setPlayerId] = useState(null);
+
+  useEffect(() => {
+    if(!playerId){
+      setPlayerId(socket.id);
+    }
+  }, [playerId]);
 
   return (
     <>
@@ -24,8 +33,10 @@ function App() {
 
       {screen === "waiting" && (
         <WaitingScreen
+          socket={socket}
+          playerId={playerId}
           playerName={playerName}
-          onNext={() => setScreen("countdown")}
+          onGameStart={() => setScreen("countdown")}
         />
       )}
 
@@ -35,24 +46,17 @@ function App() {
 
       {screen === "game" && (
         <GameBoard
-          player1Name={playerName}
-          player2Name="Opponent"
-          onNextScreen={() => setScreen("nameScreen")}
+          socket={socket}
+          playerId={playerId}
+          playerName={playerName}
+          onNextScreen={() => setScreen("results")}
         />
       )}
 
-      {screen === "nameScreen" && (
-        <NameScreen
-          onSubmit={(name) => {
-            setPlayerName(name);
-            setScreen("results");
-          }}
-        />
-      )}
 
       {screen === "results" && <ResultsScreen playerName={playerName} />}
     </>
   );
-}
+};
 
 export default App;
