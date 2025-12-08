@@ -42,7 +42,7 @@ module.exports = (server) => {
     });
 
 
-    socket.on("checkStalemate", (data) => {
+    socket.on("handleStalemate", (data) => {
       const result = gameLogic.handleStalemate({
           sessionId: data.sessionId,
           playerId: data.playerId || socket.data.id  
@@ -59,8 +59,8 @@ module.exports = (server) => {
         socket.emit("error", { message: result.error });
       }
     });
-    socket.on("playCard", (data) => {
-      const result = gameLogic.handleMove(data);
+    socket.on("playCard", async (data) => {
+      const result = await gameLogic.handleMove(data);
 
       io.to(data.sessionId).emit("gameUpdate", result);
 

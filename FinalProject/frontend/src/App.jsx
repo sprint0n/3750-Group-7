@@ -13,6 +13,8 @@ function App() {
   const [screen, setScreen] = useState("name");
   const [playerName, setPlayerName] = useState("");
   const [playerId, setPlayerId] = useState(null);
+  const [winnerName, setWinnerName] = useState("");
+  const [nameSubmitted, setNameSubmitted] = useState(false);
 
   useEffect(() => {
     if(!playerId){
@@ -20,13 +22,19 @@ function App() {
     }
   }, [playerId]);
 
+  useEffect(() => {
+    if (nameSubmitted && playerId) {
+        setScreen("waiting");
+    }
+  }, [nameSubmitted, playerId]);
+
   return (
     <>
       {screen === "name" && (
         <NameForm
           onSubmit={(name) => {
             setPlayerName(name);
-            setScreen("waiting");
+            setNameSubmitted(true);
           }}
         />
       )}
@@ -49,12 +57,21 @@ function App() {
           socket={socket}
           playerId={playerId}
           playerName={playerName}
-          onNextScreen={() => setScreen("results")}
+          onNextScreen={(gameResult) => {
+            setWinnerName(gameResult.winnerName);
+            setScreen("results");
+          }}
         />
       )}
 
 
-      {screen === "results" && <ResultsScreen playerName={playerName} />}
+      {screen === "results" && (
+        <ResultsScreen
+          playerId={playerId}
+          playerName={playerName}
+          winnerName={winnerName}
+        />
+      )}
     </>
   );
 };

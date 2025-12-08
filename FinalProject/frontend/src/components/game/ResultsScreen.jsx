@@ -1,12 +1,12 @@
 import {useEffect, useState} from "react";
 
-function ResultsScreen({ playerId, playerName }) {
+function ResultsScreen({ playerId, playerName, winnerName }) {
   const [results, setResults] = useState([]);
 
   useEffect(() => {
     async function fetchResults() {
       try {
-        const response = await fetch(`/api/results/${playerId}`); 
+        const response = await fetch(`/api/results/${playerName}`); 
         const data = await response.json();
         if (data.results) {
           setResults(data.results.map(r => ({
@@ -21,12 +21,12 @@ function ResultsScreen({ playerId, playerName }) {
       }
     }
     fetchResults();
-  }, [playerId]);
+  }, [playerName]);
 
   return (
     <div className="screen results-screen">
       <h2>
-        The winner was: <span className="winner-name">{playerName}</span>
+        The winner was: <span className="winner-name">{winnerName || 'Unknown'}</span>
       </h2>
 
       <p className="subtitle">Here are your results, {playerName}</p>

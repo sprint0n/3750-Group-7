@@ -24,14 +24,18 @@ class GameSessionManager {
   matchPlayer(player, currentSocket) {
    if (!this.waitingPlayer) {
       this.waitingPlayer = { ...player, socket: currentSocket}; 
-      console.log(`[MATCH] Player ${player.name} (${player.socketId}) is now WAITING.`); // ADDED
+      console.log(`[MATCH] Player ${player.name} (${player.socketId}) is now WAITING.`); 
       return null; 
-    }
+  }
+  if (this.waitingPlayer.id === player.id){
+    console.log("self Match ignored");
+    return null;
+  }
 
     console.log("Match has been found!");
-    // Use the name property for better debugging
-    console.log(`Match between ${this.waitingPlayer.name} and ${player.name}`); // CORRECTED
-    // Match found!
+ 
+    console.log(`Match between ${this.waitingPlayer.name} and ${player.name}`); 
+
     const p1 = this.waitingPlayer;
     const p2Data = player; 
     

@@ -1,4 +1,5 @@
 const { saveResult } = require("../db/resultsRepo");
+const sessionManager = require("./gameSessionManager");
 
 const valueMap = {
   1: "ace", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 7: "7", 8: "8", 9: "9", 10: "10", 11: "jack", 12: "queen", 13: "king",
@@ -39,118 +40,177 @@ function shuffle(deck) {
 
 // Helper function to check if a player can make *any* valid move
 function canPlay(hand, piles) {
-  const leftPileValue = piles.left.numValue;
-  const rightPileValue = piles.right.numValue;
+    let leftPileValue = null;
+    let rightPileValue = null;
 
-  for (const card of hand) {
-    const cardValue = card.numValue;
+    if(piles.left) {
+      leftPileValue = piles.left.numValue;
+    }
+    if(piles.right){
+      rightPileValue = piles.right.numValue;
+    }
 
-    // Check against left pile
-    let validLeft =
-      Math.abs(cardValue - leftPileValue) === 1 ||
-      (cardValue === 1 && leftPileValue === 13) ||
-      (cardValue === 13 && leftPileValue === 1);
+    for (const card of hand) { 
+      const cardValue = card.numValue;
 
-    if (validLeft) return true;
+      if (leftPileValue !== null) { 
+        let validLeft =
+          Math.abs(cardValue - leftPileValue) === 1 ||
+          (cardValue === 1 && leftPileValue === 13) ||
+          (cardValue === 13 && leftPileValue === 1);
 
-    // Check against right pile
-    let validRight =
-      Math.abs(cardValue - rightPileValue) === 1 ||
-      (cardValue === 1 && rightPileValue === 13) ||
-      (cardValue === 13 && rightPileValue === 1);
+        if (validLeft) return true;
+      }
+      
+      // --- Check against right pile ---
+      if (rightPileValue !== null) {
+        let validRight =
+          Math.abs(cardValue - rightPileValue) === 1 ||
+          (cardValue === 1 && rightPileValue === 13) ||
+          (cardValue === 13 && rightPileValue === 1);
 
-    if (validRight) return true;
-  }
-  return false;
+        if (validRight) return true;
+      }
+    }
+    return false;
 }
-function resetPiles(session) {
-    const p1Id = session.players[0].id;
-    const p2Id = session.players[1].id;
-    
-    let cardsToReshuffle = [];
-    
-    // 1. Collect all cards: hands, stock piles (cleared by splice(0)), and center piles
-    cardsToReshuffle.push(...session.state.hands[p1Id].splice(0));
-    cardsToReshuffle.push(...session.state.hands[p2Id].splice(0));
-    cardsToReshuffle.push(...session.state.stockPiles[p1Id].splice(0));
-    cardsToReshuffle.push(...session.state.stockPiles[p2Id].splice(0));
-    cardsToReshuffle.push(session.state.piles.left);
-    cardsToReshuffle.push(session.state.piles.right);
+  
 
-    // Clear piles to ensure a clean state update (fix for the rendering bug)
-    session.state.piles.left = null;
-    session.state.piles.right = null;
-    
-    // 2. Shuffle the complete deck (52 cards)
-    let newDeck = shuffle(cardsToReshuffle); 
-
-    // 3. SAFETY FIX: Take the two center cards off the deck first, guaranteeing they exist.
-    const pileRightCard = newDeck.pop();
-    const pileLeftCard = newDeck.pop();
-    
-    // The deck now has exactly 50 cards remaining.
-
-    // 4. Deal player hands (5 cards each)
-    session.state.hands[p1Id].push(...newDeck.splice(0, 5));
-    session.state.hands[p2Id].push(...newDeck.splice(0, 5));
-    
-    // The deck now has exactly 40 cards remaining.
-    
-    // 5. Deal stock piles (20 cards each) - ensures exactly 20 cards are assigned.
-    session.state.stockPiles[p1Id].push(...newDeck.splice(0, 20));
-    session.state.stockPiles[p2Id].push(...newDeck.splice(0, 20));
-
-    // 6. Assign the center pile cards
-    session.state.piles.left = pileLeftCard;
-    session.state.piles.right = pileRightCard;
-
-    return session.state;
-}
 function handleStalemate({ sessionId, playerId }) {
-    const sessionManager = require("./gameSessionManager");
     const session = sessionManager.getSession(sessionId);
     if (!session) return { error: "Session not found", ok: false };
 
     const state = session.state;
     const p1Id = session.players[0].id;
     const p2Id = session.players[1].id;
+    const opponentId = playerId === p1Id ? p2Id : p1Id;
     const currentHand = state.hands[playerId];
-    const piles = state.piles;
 
-    if (canPlay(currentHand, piles)) {
-        return { 
-            ok: false, 
-            error: "You still have a valid move and cannot signal 'Can't Play'.", 
-            state: state
-        };
-    }
+    if (canPlay(currentHand, state.piles)) {
+        console.log(`${playerId} Tried to signal invalid reset`);
+        return { ok: false, error: "You still have a valid move.", state: {...state} };
+    } 
     
-    state.cantPlay[playerId] = true;
+    state.cantPlay[playerId] = true; 
+    
+    if (state.cantPlay[opponentId]) {
 
-    const p1IsStuck = state.cantPlay[p1Id];
-    const p2IsStuck = state.cantPlay[p2Id];
-
-    if (p1IsStuck && p2IsStuck) {
-        const newState = resetPiles(session);
+        let allCardsToReshuffle = [];
         
-        newState.cantPlay[p1Id] = false;
-        newState.cantPlay[p2Id] = false;
+        if (state.piles.left) {
+            allCardsToReshuffle.push(state.piles.left);
+        }
+        if (state.piles.right) {
+            allCardsToReshuffle.push(state.piles.right);
+        }
+        
+        allCardsToReshuffle = allCardsToReshuffle.concat(state.stockPiles[p1Id].splice(0));
+        allCardsToReshuffle = allCardsToReshuffle.concat(state.stockPiles[p2Id].splice(0));
+
+        state.piles.left = null; 
+        state.piles.right = null;
+        
+        shuffle(allCardsToReshuffle);
+
+        let targetStockPile = state.stockPiles[p1Id];
+        while (allCardsToReshuffle.length > 0) {
+            targetStockPile.push(allCardsToReshuffle.pop());
+            targetStockPile = targetStockPile === state.stockPiles[p1Id] 
+                ? state.stockPiles[p2Id] 
+                : state.stockPiles[p1Id];
+        }
+
+        state.piles.left = state.stockPiles[p1Id].pop() || null; 
+        state.piles.right = state.stockPiles[p2Id].pop() || null;
+
+        // G. Reset player statuses
+        state.cantPlay[p1Id] = false;
+        state.cantPlay[p2Id] = false;
 
         return {
             ok: true,
-            stalemate: true,
-            message: "Stalemate reached! Play piles have been reshuffled.",
-            state: newState
+            stalemate: true, 
+            message: "STALEMATE RESOLVED! All available cards reshuffled into stocks and new cards are in play.",
+            state: {
+                ...state,
+                piles: {
+                    left: state.piles.left,
+                    right: state.piles.right,
+                }
+            }
         };
+    } else {
+
+        const opponentName = session.players.find(p => p.id === opponentId)?.name || 'Opponent';
+        
+        return {
+            ok: true,
+            stalemate: false,
+            message: `Waiting for ${opponentName} to signal 'Can't Play'.`,
+            state: {...state}
+        };
+    }
+}
+async function handleMove({ sessionId, playerId, card, pileSide }) {
+    const session = sessionManager.getSession(sessionId);
+    if (!session) return { error: "Session not found", ok: false };
+
+    const hand = session.state.hands[playerId];
+    if (!hand) return { error: "Player hand not found", ok: false };
+
+    // ... (rest of card play logic and opponent cantPlay reset logic)
+
+    const index = hand.findIndex(c => c.numValue === card.numValue);
+    // ... (validation logic)
+    session.state.piles[pileSide] = hand[index]; 
+    hand.splice(index, 1);
+    
+    // Check for game over: Player wins if their hand is empty AND their stock pile is empty.
+    const finished = hand.length === 0 && session.state.stockPiles[playerId].length === 0;
+
+    const newStateForClient = {
+      ...session.state,
+      piles: {
+        ...session.state.piles
+      }
+    };
+    if (finished) {
+      const winner = session.players.find(p => p.id === playerId);
+      const loser = session.players.find(p => p.id !== playerId);
+      
+      // Calculate loser's total remaining cards (hand + stock)
+      const loserCards = session.state.hands[loser.id].length + session.state.stockPiles[loser.id].length;
+      
+      // Save WINNER's result
+      await saveResult({ 
+        playerName: winner.name,
+        won: true,
+        loserCards: 0,
+      });
+
+      // Save LOSER's result
+      await saveResult({ 
+        playerName: loser.name,
+        won: false,
+        loserCards: loserCards,
+      });
+
+      return {
+        ok: true,
+        gameOver: true,
+        winner: winner.id,
+        winnerName: winner.name, // Pass winnerName for client-side display
+        state: newStateForClient
+      };
     }
 
     return {
-        ok: true,
-        stalemate: false,
-        message: "Waiting for opponent to signal 'Can't Play'.",
-        state: state
+      ok: true,
+      gameOver: false,
+      state: newStateForClient
     };
-}
+  }
+
 
 module.exports = {
   // Initialize game state
@@ -181,6 +241,8 @@ module.exports = {
         [session.players[1].id]: p2Stock 
       },
       piles,
+      leftPile: [],
+      rightPile: [],
       cantPlay: {
         [session.players[0].id]: false, 
         [session.players[1].id]: false 
@@ -195,84 +257,8 @@ module.exports = {
   },
 
   // Handle a player move
- handleMove({ sessionId, playerId, card, pileSide }) {
-    const sessionManager = require("./gameSessionManager");
-    const session = sessionManager.getSession(sessionId);
-    if (!session) return { error: "Session not found", ok: false };
-
-    const hand = session.state.hands[playerId];
-    if (!hand) return { error: "Player hand not found", ok: false };
-
-    const pile = session.state.piles[pileSide];
-    if (!pile) return { error: "Pile not found", ok: false };
-
-    const incomingCardNumValue = card.numValue; 
-    const incomingCardSuitInitial = card.suit;
-    
-    const index = hand.findIndex(c => {
-        return c.numValue === incomingCardNumValue;
-    });
-
-    if (index === -1) return { error: "Card not found in hand", ok: false };
-
-    const cardToPlay = hand[index];
-
-    const valid =
-        Math.abs(cardToPlay.numValue - pile.numValue) === 1 || 
-        (cardToPlay.numValue === 1 && pile.numValue === 13) ||
-        (cardToPlay.numValue === 13 && pile.numValue === 1);
-
-    if (!valid) return { error: "Invalid move", ok: false };
-
-    session.state.piles[pileSide] = cardToPlay; 
-
-    hand.splice(index, 1);
-
-
-    const opponent = session.players.find(p => p.id !== playerId);
-    const opponentId = opponent.id;
-    const opponentName = opponent.name;
-    const opponentHand = session.state.hands[opponentId];
-    let message = `${session.players.find(p => p.id === playerId).name} played a card.`;
-
-    if (session.state.cantPlay[opponentId] === true) {
-        
-        if (canPlay(opponentHand, session.state.piles)) {
-            
-            session.state.cantPlay[opponentId] = false;
-            
-            message = `${session.players.find(p => p.id === playerId).name} played a card. ${opponentName}'s 'Can't Play' status was reset.`;
-        }
-    }
-
-    // Check for game over
-    const finished = hand.length === 0;
-    if (finished) {
-      const otherPlayerId = session.players.find(p => p.id !== playerId).id;
-
-      saveResult({
-        playerName: playerId,
-        won: true,
-        loserCards: session.state.hands[otherPlayerId].length
-      });
-
-      return {
-        ok: true,
-        gameOver: true,
-        winner: playerId,
-        state: session.state
-      };
-    }
-
-    return {
-      ok: true,
-      gameOver: false,
-      state: session.state
-    };
-  },
 
   handleStackUp({ sessionId, playerId }) {
-    const sessionManager = require("./gameSessionManager");
     const session = sessionManager.getSession(sessionId);
     if (!session) return { error: "Session not found", ok: false };
 
@@ -286,7 +272,7 @@ module.exports = {
         return { 
             ok: false, 
             error: "Cannot flip cards. At least one stock pile is empty.", 
-            state: state
+            state: {...state}
         };
     }
     
@@ -311,7 +297,13 @@ module.exports = {
             ok: true,
             flipped: true,
             message: "Stack flipped! New cards are now in play.",
-            state: state
+            state: {
+                ...state,
+                piles: {
+                    left: state.piles.left,
+                    right: state.piles.right
+                }
+            }
         };
     }
 
@@ -319,11 +311,10 @@ module.exports = {
         ok: true,
         flipped: false,
         message: "Waiting for opponent to press 'Flip Card'.",
-        state: state
+        state: { ...state}
     };
 },
   handleDrawCard({ sessionId, playerId }) {
-    const sessionManager = require("./gameSessionManager");
     const session = sessionManager.getSession(sessionId);
     if (!session) return { error: "Session not found", ok: false };
 
@@ -347,10 +338,11 @@ module.exports = {
 
     return {
       ok: true,
-      state: session.state,
+      state: {...session.state},
       message: `${session.players.find(p => p.id === playerId).name} drew ${cardsDrawn} card(s).`
     };
   },
 
-  handleStalemate
+  handleStalemate,
+  handleMove
 };

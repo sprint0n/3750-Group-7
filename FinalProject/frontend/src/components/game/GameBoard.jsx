@@ -46,24 +46,23 @@ function GameBoard({ socket, playerId, playerName, onNextScreen }) {
   // --- Socket Listeners ---
   useEffect(() => {
     
-    // 1. Handle real-time game updates
-    socket.on("gameUpdate", (data) => {
-      if (!data.ok) {
-        setStatusMessage(data.error);
-        return;
-      }
-      
-      setGameState(data.state);
-      setStatusMessage(data.message || "");
+  socket.on("gameUpdate", (data) => {
+    setStatusMessage(data.message || "");
 
-      // Handle game over
-      if (data.gameOver) {
-        setStatusMessage(`Game Over! ${data.winner === playerId ? 'You Won!' : `${opponentName} Won!`}`);
-        setTimeout(onNextScreen, 2000);
-      }
-    });
+
+    if (data.ok) {
+        setGameState(data.state); 
+
+        if (data.gameOver) {
+            setStatusMessage(`Game Over! ${data.winner === playerId ? 'You Won!' : `${opponentName} Won!`}`);
+            setTimeout(() => onNextScreen(data), 2000);
+        }
+    } else {
+   
+        setStatusMessage(data.error || data.message || "An unknown error occurred.");
+    }
+});
     
-    // 2. Handle opponent disconnection
     socket.on("opponentDisconnected", (data) => {
         setStatusMessage(data.message);
         socket.disconnect(); 
@@ -116,7 +115,7 @@ function handleStackUp() {
   }
 
   function handleCantPlay() {
-    socket.emit("checkStalemate", { sessionId });
+    socket.emit("handleStalemate", { sessionId, playerId });
   }
 
 return (

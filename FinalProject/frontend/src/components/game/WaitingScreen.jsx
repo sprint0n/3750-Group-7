@@ -1,12 +1,12 @@
-import { useEffect, useState, useRef } from "react"; // 1. Import useRef
+import { useEffect, useState, useRef } from "react"; 
 
 function WaitingScreen({ socket, playerId, playerName, onGameStart }) {
   const [message, setMessage] = useState("Connecting...");
-  const isMounted = useRef(false); // 2. Create the mutable reference flag
+  const isMounted = useRef(false); 
 
 
   useEffect(() => {
-    // 3. Check the flag before executing the one-time logic
+
     if (isMounted.current) {
       return;
     }
@@ -15,16 +15,14 @@ function WaitingScreen({ socket, playerId, playerName, onGameStart }) {
       socket.connect();
     }
   
-    // Send the one-time join request
+
     socket.emit("joinGame", { playerId, playerName }); 
     setMessage("Waiting for another player...");
 
-    // 4. Set the flag to true after execution
-    isMounted.current = true;
+
   
-  // We use an empty array here because the logic inside is now guarded by `isMounted`
-  }, [playerId, playerName, socket]); // Note: You can now safely remove these dependencies if you wish, 
-                                     // or leave them to satisfy the linter, as `isMounted` controls the execution.
+
+  }, [playerId, playerName, socket]); 
 
 
   useEffect(() => {
