@@ -6,7 +6,7 @@ function ResultsScreen({ playerId, playerName, winnerName }) {
   useEffect(() => {
     async function fetchResults() {
       try {
-        const response = await fetch(`/api/results/${playerName}`); 
+        const response = await fetch(`http://localhost:4000/api/results/${playerName}`); 
         const data = await response.json();
         if (data.results) {
           setResults(data.results.map(r => ({

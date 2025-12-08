@@ -123,7 +123,6 @@ function handleStalemate({ sessionId, playerId }) {
         state.piles.left = state.stockPiles[p1Id].pop() || null; 
         state.piles.right = state.stockPiles[p2Id].pop() || null;
 
-        // G. Reset player statuses
         state.cantPlay[p1Id] = false;
         state.cantPlay[p2Id] = false;
 
@@ -158,14 +157,11 @@ async function handleMove({ sessionId, playerId, card, pileSide }) {
     const hand = session.state.hands[playerId];
     if (!hand) return { error: "Player hand not found", ok: false };
 
-    // ... (rest of card play logic and opponent cantPlay reset logic)
 
     const index = hand.findIndex(c => c.numValue === card.numValue);
-    // ... (validation logic)
     session.state.piles[pileSide] = hand[index]; 
     hand.splice(index, 1);
     
-    // Check for game over: Player wins if their hand is empty AND their stock pile is empty.
     const finished = hand.length === 0 && session.state.stockPiles[playerId].length === 0;
 
     const newStateForClient = {
