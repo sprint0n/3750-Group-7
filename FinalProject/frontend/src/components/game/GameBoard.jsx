@@ -43,6 +43,19 @@ function GameBoard({ socket, playerId, playerName, onNextScreen }) {
     const centerPileLeft = gameState?.piles?.left;
     const centerPileRight = gameState?.piles?.right;
 
+    const canCurrentPlayerPlay = useMemo(() => {
+        const leftPile = gameState?.piles?.left;
+        const rightPile = gameState?.piles?.right;
+
+   
+        for (const card of myHand) {
+            if (canPlayCard(card, leftPile) || canPlayCard(card, rightPile)) {
+                return true; 
+            }
+        }
+        return false; 
+    }, [myHand, gameState?.piles?.left, gameState?.piles?.right]);
+
   // --- Socket Listeners ---
   useEffect(() => {
     
@@ -124,18 +137,8 @@ return (
                 {/* Status Message */}
                 <div className="status-bar">{statusMessage}</div>
 
-                {/* Player 2 (Opponent) area*/}
+                {/* Player 2 (Opponent) area - Top Hand Area */}
                 <div className="player-area opponent-area">
-                    {/*Opponent Stock Pile */}
-                    <div className="stock-pile">
-                        <div className="stock-count">Stock: {opponentStockPileLength}</div>
-                        {opponentStockPileLength > 0 && (
-                            <Card card={{}} faceUp={false} />
-                        )}
-                        {opponentStockPileLength === 0 && (
-                             <div className="empty-stack">Empty</div>
-                        )}
-                    </div>
                     <div className="label">
                         {opponentName} — Hand: {opponentHandLength}
                     </div>
@@ -146,48 +149,80 @@ return (
                     </div>
                 </div>
 
-                {/* Center area (play zone) */}
-                <div className="middle-area">
-                    <div className="stack-placeholder"></div>
-
-                    {/* Left Play Pile */}
-                    <div
-                        className="stack"
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => handleDrop("left")}
-                    >
-                        <div className="label">Play</div>
-                        {centerPileLeft && (
-
+                { /* Central Area for Piles and Stocks */}
+                <div className="center-play-area">
+                    
+                    {/* 1. Opponent's Stock Pile (Left Side) */}
+                    <div className="stock-pile opponent-stock">
+                        <div className="stock-count">Stock: {opponentStockPileLength}</div>
+                        {opponentStockPileLength > 0 && (
                             <Card 
-                                card={centerPileLeft} 
-                                faceUp 
+                                card={{}} 
+                                faceUp={false} 
                             />
+                        )}
+                        {opponentStockPileLength === 0 && (
+                            <div className="empty-stack">Empty</div>
                         )}
                     </div>
 
-                    {/* Right Play Pile */}
-                    <div
-                        className="stack"
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => handleDrop("right")}
-                    >
-                        <div className="label">Play</div>
-                        {centerPileRight && (
+                    {/* Center Play Piles (Middle) */}
+                    <div className="center-piles">
+                        
+                        {/* Left Play Pile */}
+                        <div
+                            className="stack"
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={() => handleDrop("left")}
+                        >
+                            <div className="label">Play</div>
+                            {centerPileLeft && (
+                                <Card 
+                                    card={centerPileLeft} 
+                                    faceUp 
+                                />
+                            )}
+                        </div>
 
+                        {/* Right Play Pile */}
+                        <div
+                            className="stack"
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={() => handleDrop("right")}
+                        >
+                            <div className="label">Play</div>
+                            {centerPileRight && (
+                                <Card 
+                                    card={centerPileRight} 
+                                    faceUp 
+                                />
+                            )}
+                        </div>
+                    </div>
+                    
+                    {/*Player's Stock Pile (Right Side) */}
+                    <div className="stock-pile player-stock">
+                        <div className="stock-count">Stock: {myStockPileLength}</div>
+                        {myStockPileLength > 0 && (
                             <Card 
-                                card={centerPileRight} 
-                                faceUp 
+                                card={{}} 
+                                faceUp={false} 
                             />
                         )}
+                        {myStockPileLength === 0 && (
+                            <div className="empty-stack">Empty</div>
+                        )}
                     </div>
-                    <div className="stack-placeholder"></div>
                 </div>
 
-                {/* Player 1 area*/}
+
+                {/* Player 1 area - Bottom Hand Area */}
                 <div className="player-area my-area">
                     <div className="controls">
-                        <button onClick={handleCantPlay} disabled={myCantPlayStatus}>
+                        <button 
+                            onClick={handleCantPlay} 
+                            disabled={canCurrentPlayerPlay || myCantPlayStatus}
+                        >
                             {myCantPlayStatus ? "Waiting for Opponent..." : "Can't Play"}
                         </button>
                         <button onClick={handleStackUp} disabled={myStackReadyStatus}>
@@ -197,21 +232,6 @@ return (
 
                     <div className="label">
                         {playerName} — Hand: {myHand.length}
-                    </div>
-
-                    {/*Player Stock Pile */}
-                    <div className="stock-pile">
-                        <div className="stock-count">Stock: {myStockPileLength}</div>
-                        {myStockPileLength > 0 && (
-                            <Card 
-                                // Placeholder card for visual stack
-                                card={{}} 
-                                faceUp={false} 
-                            />
-                        )}
-                        {myStockPileLength === 0 && (
-                             <div className="empty-stack">Empty</div>
-                        )}
                     </div>
                     
                     <div className="hand-row">

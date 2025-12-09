@@ -22,21 +22,34 @@ class GameSessionManager {
   }
 
   matchPlayer(player, currentSocket) {
-   if (!this.waitingPlayer) {
-      this.waitingPlayer = { ...player, socket: currentSocket}; 
-      console.log(`[MATCH] Player ${player.name} (${player.socketId}) is now WAITING.`); 
-      return null; 
-  }
-  if (this.waitingPlayer.id === player.id){
-    console.log("self Match ignored");
-    return null;
-  }
+    if (!this.waitingPlayer) {
+      // Set the initial waiting player, storing both ID and the socket object
+      this.waitingPlayer = { 
+        ...player, 
+        socket: currentSocket, 
+        socketId: currentSocket.id 
+      }; 
+      console.log(`[MATCH] Player ${player.name} (${currentSocket.id}) is now WAITING.`); 
+      return null; 
+    }
+    
 
-    console.log("Match has been found!");
- 
+    if (this.waitingPlayer.id === player.id) {
+
+      console.log(`[MATCH] Player ${player.name} (${player.id}) is already waiting. Updating socket reference.`);
+      
+
+      this.waitingPlayer.socket = currentSocket;
+      this.waitingPlayer.socketId = currentSocket.id;
+      
+      return null; 
+    }
+
+    console.log("Match has been found!");
+  
     console.log(`Match between ${this.waitingPlayer.name} and ${player.name}`); 
 
-    const p1 = this.waitingPlayer;
+    const p1 = this.waitingPlayer;
     const p2Data = player; 
     
     const session = this.createSession(p1, p2Data);
@@ -44,9 +57,9 @@ class GameSessionManager {
     this.waitingPlayer = null;
 
     return { 
-        session, 
-        p1Socket: p1.socket, 
-        p2Socket: currentSocket 
+      session, 
+      p1Socket: p1.socket, 
+      p2Socket: currentSocket 
     };
   }
 
@@ -60,7 +73,7 @@ class GameSessionManager {
     delete this.sessions[sessionId];
   }
 
- findSessionBySocketId(socketId) {
+  findSessionBySocketId(socketId) {
     const sessionKeys = Object.keys(this.sessions);
     for (const key of sessionKeys) {
         const session = this.sessions[key];
@@ -78,7 +91,6 @@ class GameSessionManager {
       }
       return false;
   }
-
 }
 
 

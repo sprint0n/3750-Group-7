@@ -32,6 +32,22 @@
     animation: logo-spin infinite 20s linear;
   }
 }
+.center-play-area {
+    display: flex;
+    justify-content: center; 
+    align-items: center;
+    gap: 40px; 
+    margin: 20px 0;
+}
+
+
+.stock-pile {
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+}
 
 .card {
   padding: 2em;

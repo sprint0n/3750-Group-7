@@ -103,25 +103,25 @@ function handleStalemate({ sessionId, playerId }) {
         if (state.piles.right) {
             allCardsToReshuffle.push(state.piles.right);
         }
-        
-        allCardsToReshuffle = allCardsToReshuffle.concat(state.stockPiles[p1Id].splice(0));
-        allCardsToReshuffle = allCardsToReshuffle.concat(state.stockPiles[p2Id].splice(0));
+
+        allCardsToReshuffle = allCardsToReshuffle.concat(state.leftPlayedPile.splice(0));
+        allCardsToReshuffle = allCardsToReshuffle.concat(state.rightPlayedPile.splice(0));
 
         state.piles.left = null; 
         state.piles.right = null;
         
         shuffle(allCardsToReshuffle);
 
-        let targetStockPile = state.stockPiles[p1Id];
-        while (allCardsToReshuffle.length > 0) {
-            targetStockPile.push(allCardsToReshuffle.pop());
-            targetStockPile = targetStockPile === state.stockPiles[p1Id] 
-                ? state.stockPiles[p2Id] 
-                : state.stockPiles[p1Id];
-        }
+        state.piles.left = allCardsToReshuffle.pop() || null; 
+        state.piles.right = allCardsToReshuffle.pop() || null;
 
-        state.piles.left = state.stockPiles[p1Id].pop() || null; 
-        state.piles.right = state.stockPiles[p2Id].pop() || null;
+        let targetPlayedPile = state.leftPlayedPile;
+        while(allCardsToReshuffle.length > 0){
+          targetPlayedPile.push(allCardsToReshuffle.pop());
+          targetPlayedPile = targetPlayedPile == state.leftPlayedPile
+          ? state.rightPlayedPile
+          : state.leftPlayedPile;
+        }
 
         state.cantPlay[p1Id] = false;
         state.cantPlay[p2Id] = false;
@@ -157,10 +157,21 @@ async function handleMove({ sessionId, playerId, card, pileSide }) {
     const hand = session.state.hands[playerId];
     if (!hand) return { error: "Player hand not found", ok: false };
 
+    const oldTopCard = session.state.piles[pileSide];
+
+    if(oldTopCard){
+      if(pileSide === 'left'){
+          session.state.leftPlayedPile.push(oldTopCard);
+      }else if (pileSide === 'right'){
+          session.state.rightPlayedPile.push(oldTopCard);
+
+      }
+    }
+
 
     const index = hand.findIndex(c => c.numValue === card.numValue);
     session.state.piles[pileSide] = hand[index]; 
-    hand.splice(index, 1);
+    hand.splice(index, 1);
     
     const finished = hand.length === 0 && session.state.stockPiles[playerId].length === 0;
 
@@ -237,8 +248,8 @@ module.exports = {
         [session.players[1].id]: p2Stock 
       },
       piles,
-      leftPile: [],
-      rightPile: [],
+      leftPlayedPile: [],
+      rightPlayedPile: [],
       cantPlay: {
         [session.players[0].id]: false, 
         [session.players[1].id]: false 
